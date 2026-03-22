@@ -2,8 +2,12 @@
 
 import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Plus, Trash2, Save, Calculator, Clock, Calendar, CheckCircle2, ArrowRight } from 'lucide-react';
+import { Plus, Trash2, Save, Calculator, CheckCircle2, ArrowRight, Mic, User, TrendingUp } from 'lucide-react';
 import Link from 'next/link';
+
+// --- Firebase ---
+import { db } from '@/lib/firebase';
+import { doc, setDoc } from 'firebase/firestore';
 
 interface StaffWork {
   id: string;
@@ -16,170 +20,164 @@ interface StaffWork {
 function AttendanceContent() {
   const searchParams = useSearchParams();
   const dateParam = searchParams.get('date');
-
   const [date, setDate] = useState(dateParam || new Date().toISOString().split('T')[0]);
   const [showToast, setShowToast] = useState(false);
+  const [activeListeningId, setActiveListeningId] = useState<string | null>(null);
   
-  // デフォルト 19:00 / 休憩 0分
   const [staffList, setStaffList] = useState<StaffWork[]>([
     { id: '1', name: '', startTime: '19:00', endTime: '22:00', breakMinutes: 0 }
   ]);
 
-  useEffect(() => {
-    if (dateParam) setDate(dateParam);
-  }, [dateParam]);
+  const calculateHours = (s: StaffWork) => {
+    const toMin = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+    let start = toMin(s.startTime), end = toMin(s.endTime);
+    if (end < start) end += 1440;
+    const diff = end - start - s.breakMinutes;
+    return diff > 0 ? Math.floor((diff / 60) * 100) / 100 : 0;
+  };
 
-  useEffect(() => {
-    const savedData = localStorage.getItem(`kintai-${date}`);
-    if (savedData) {
-      setStaffList(JSON.parse(savedData));
-    } else {
-      setStaffList([{ id: Date.now().toString(), name: '', startTime: '19:00', endTime: '22:00', breakMinutes: 0 }]);
+  const dailyTotal = staffList.reduce((sum, staff) => sum + calculateHours(staff), 0);
+
+  const handleSave = async () => {
+    try {
+      const docRef = doc(db, "kintai", date);
+      await setDoc(docRef, { 
+        totalHours: dailyTotal,
+        updatedAt: new Date()
+      });
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 2000);
+    } catch (error) {
+      console.error("保存失敗:", error);
     }
-  }, [date]);
-
-  const timeToMinutes = (time: string) => {
-    const [hrs, mins] = time.split(':').map(Number);
-    return hrs * 60 + mins;
   };
 
-  const calculateDecimalHours = (staff: StaffWork) => {
-    const start = timeToMinutes(staff.startTime);
-    let end = timeToMinutes(staff.endTime);
-    if (end < start) end += 24 * 60; // 日またぎ対応
-    
-    const totalMins = end - start - staff.breakMinutes;
-    if (totalMins <= 0) return 0;
-    return Math.floor((totalMins / 60) * 100) / 100;
+  const updateStaff = (id: string, field: keyof StaffWork, value: any) => {
+    setStaffList(prev => prev.map(s => s.id === id ? { ...s, [field]: value } : s));
   };
 
-  const dailyTotal = staffList.reduce((sum, staff) => sum + calculateDecimalHours(staff), 0);
+  // --- 音声入力ロジック（完全復活） ---
+  const startListening = (staffId: string) => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) return alert("Chrome推奨です");
 
-  // 保存処理（ページ遷移を削除）
-  const handleSave = () => {
-    localStorage.setItem(`kintai-${date}`, JSON.stringify(staffList));
-    
-    // 保存完了の通知を出す
-    setShowToast(true);
-    setTimeout(() => setShowToast(false), 3000); // 3秒後に消す
-  };
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'ja-JP';
+    recognition.onstart = () => setActiveListeningId(staffId);
+    recognition.onend = () => setActiveListeningId(null);
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript
+        .replace(/[０-９]/g, (s: string) => String.fromCharCode(s.charCodeAt(0) - 0xFEE0))
+        .replace(/[：:。、.？?]/g, '');
 
-  const addStaff = () => {
-    setStaffList([...staffList, { 
-      id: Date.now().toString(), 
-      name: '', 
-      startTime: '19:00', 
-      endTime: '22:00', 
-      breakMinutes: 0 
-    }]);
-  };
-
-  const removeStaff = (id: string) => {
-    if (staffList.length > 1) setStaffList(staffList.filter(s => s.id !== id));
-  };
-
-  const updateStaff = (id: string, field: keyof StaffWork, value: string | number) => {
-    setStaffList(staffList.map(s => s.id === id ? { ...s, [field]: value } : s));
+      setStaffList(prev => prev.map(staff => {
+        if (staff.id !== staffId) return staff;
+        let updated = { ...staff };
+        const parseTime = (keywords: string[], isStart: boolean) => {
+          const regex = new RegExp(`(?:(\\d+)\\s*時)?\\s*(\\d+)?\\s*分?\\s*(?:${keywords.join('|')})|(?:${keywords.join('|')})\\s*(?:(\\d+)\\s*時)?\\s*(\\d+)?\\s*分?`);
+          const m = transcript.match(regex);
+          if (m) {
+            let h = parseInt(m[1] || m[3]);
+            const min = m[2] || m[4] || "00";
+            if (!isNaN(h)) {
+              if (isStart && h < 15) h += 12;
+              if (!isStart && h >= 8 && h < 12) h += 12;
+              return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
+            }
+          }
+          return null;
+        };
+        const st = parseTime(["入り", "出勤", "開始"], true);
+        const et = parseTime(["上がり", "退勤", "終了"], false);
+        if (st) updated.startTime = st; 
+        if (et) updated.endTime = et;
+        const breakMatch = transcript.match(/(\d+)\s*(時間|分)?\s*休憩/);
+        if (breakMatch) {
+          const val = parseInt(breakMatch[1]);
+          updated.breakMinutes = transcript.includes(breakMatch[1] + "時間") ? val * 60 : val;
+        }
+        return updated;
+      }));
+    };
+    recognition.start();
   };
 
   return (
-    <main className="min-h-screen bg-slate-50 p-4 sm:p-8 pb-32 relative">
-      <div className="max-w-3xl mx-auto space-y-6">
-        
-        {/* 保存完了トースト */}
+    <main className="min-h-screen bg-slate-50 text-slate-900 p-4 sm:p-8 pb-40 overflow-y-auto">
+      <div className="max-w-4xl mx-auto space-y-6">
         {showToast && (
-          <div className="fixed top-8 left-1/2 -translate-x-1/2 z-[100] bg-slate-900 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-2 animate-in fade-in slide-in-from-top-4">
-            <CheckCircle2 className="text-green-400" size={20} />
-            <span className="font-bold">{date} のデータを保存しました</span>
+          <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[100] bg-slate-900 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-3">
+            <CheckCircle2 className="text-green-500" size={18} />
+            <span className="font-bold text-sm">クラウドに保存しました</span>
           </div>
         )}
 
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-                <Calculator className="text-blue-600" size={24} /> 勤怠入力
-              </h1>
-              <p className="text-sm text-slate-500 mt-1 font-medium text-blue-600">デフォルト：19:00入り / 休憩0分</p>
-            </div>
-            <div className="relative">
-              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-              <input 
-                type="date" 
-                value={date} 
-                onChange={(e) => setDate(e.target.value)}
-                className="pl-10 pr-4 py-2 bg-slate-100 border-none rounded-lg font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
+        <header className="bg-white rounded-3xl shadow-sm border border-slate-200 p-6 flex flex-col md:flex-row justify-between items-center gap-4">
+          <div className="flex items-center gap-4">
+            <div className="bg-blue-600 p-3 rounded-2xl text-white shadow-lg"><Calculator size={24} /></div>
+            <h1 className="text-xl font-black tracking-tight">勤怠クラウド入力</h1>
           </div>
-        </div>
+          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="bg-slate-50 border-none rounded-2xl px-4 py-2 text-sm font-bold outline-none cursor-pointer" />
+        </header>
 
-        <div className="space-y-3">
+        <div className="grid gap-3">
           {staffList.map((staff) => (
-            <div key={staff.id} className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 transition-all hover:border-blue-200">
-              <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-end">
-                <div className="sm:col-span-3">
-                  <label className="text-[10px] font-bold text-slate-400 mb-1 block">スタッフ名</label>
-                  <input type="text" placeholder="名前" value={staff.name} onChange={(e) => updateStaff(staff.id, 'name', e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-md px-3 py-2 text-sm focus:bg-white outline-none" />
-                </div>
-                <div className="sm:col-span-4">
-                  <label className="text-[10px] font-bold text-slate-400 mb-1 block">勤務 (19:00~)</label>
-                  <div className="flex items-center gap-2">
-                    <input type="time" value={staff.startTime} onChange={(e) => updateStaff(staff.id, 'startTime', e.target.value)} className="flex-1 bg-slate-50 border border-slate-200 rounded-md p-2 text-sm font-medium" />
-                    <span className="text-slate-300">-</span>
-                    <input type="time" value={staff.endTime} onChange={(e) => updateStaff(staff.id, 'endTime', e.target.value)} className="flex-1 bg-slate-50 border border-slate-200 rounded-md p-2 text-sm font-medium" />
+            <div key={staff.id} className="bg-white rounded-3xl border border-slate-200/60 p-4 shadow-sm hover:border-blue-200 transition-all">
+              <div className="flex flex-col lg:flex-row items-end gap-4">
+                <div className="w-full lg:w-48">
+                  <label className="text-[10px] font-black text-slate-400 mb-1 block uppercase">Name</label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
+                    <input type="text" placeholder="名前" value={staff.name} onChange={(e) => updateStaff(staff.id, 'name', e.target.value)} className="w-full bg-slate-50 border-none rounded-2xl pl-9 pr-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none" />
                   </div>
                 </div>
-                <div className="sm:col-span-2">
-                  <label className="text-[10px] font-bold text-slate-400 mb-1 block text-center">休憩(分)</label>
-                  <input type="number" value={staff.breakMinutes} onChange={(e) => updateStaff(staff.id, 'breakMinutes', parseInt(e.target.value) || 0)} className="w-full bg-slate-50 border border-slate-200 rounded-md px-3 py-2 text-sm font-medium text-center" />
+                <div className="flex-1 w-full">
+                  <div className="flex justify-between items-center mb-1">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Duty Hours</label>
+                    <button onClick={() => startListening(staff.id)} className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black transition-all ${activeListeningId === staff.id ? 'bg-red-500 text-white animate-pulse' : 'bg-slate-900 text-white hover:bg-slate-800'}`}>
+                      <Mic size={10} /> {activeListeningId === staff.id ? '録音中...' : '音声入力'}
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input type="time" value={staff.startTime} onChange={(e) => updateStaff(staff.id, 'startTime', e.target.value)} className="flex-1 bg-slate-50 border-none rounded-2xl p-2.5 text-sm font-black text-center focus:ring-2 focus:ring-blue-500 outline-none" />
+                    <span className="text-slate-300">→</span>
+                    <input type="time" value={staff.endTime} onChange={(e) => updateStaff(staff.id, 'endTime', e.target.value)} className="flex-1 bg-slate-50 border-none rounded-2xl p-2.5 text-sm font-black text-center focus:ring-2 focus:ring-blue-500 outline-none" />
+                  </div>
                 </div>
-                <div className="sm:col-span-2 flex flex-col items-center justify-center bg-blue-50 border border-blue-100 rounded-md p-2 text-blue-700">
-                  <label className="text-[10px] font-bold uppercase mb-1 block">稼働</label>
-                  <span className="text-xl font-black">{calculateDecimalHours(staff).toFixed(2)}</span>
-                </div>
-                <div className="sm:col-span-1 flex justify-end">
-                  <button onClick={() => removeStaff(staff.id)} className="p-2 text-slate-300 hover:text-red-500"><Trash2 size={18} /></button>
+                <div className="flex items-end gap-3 w-full lg:w-auto">
+                  <div className="w-20">
+                    <label className="text-[10px] font-black text-slate-400 mb-1 block text-center uppercase">Break</label>
+                    <input type="number" value={staff.breakMinutes} onChange={(e) => updateStaff(staff.id, 'breakMinutes', parseInt(e.target.value) || 0)} className="w-full bg-slate-50 border-none rounded-2xl p-2.5 text-sm font-black text-center outline-none focus:ring-2 focus:ring-blue-500" />
+                  </div>
+                  <div className="flex-1 lg:w-28 bg-blue-50 rounded-2xl p-2.5 text-center">
+                    <div className="text-[8px] font-black text-blue-300 uppercase mb-1">Total</div>
+                    <div className="text-xl font-black text-blue-700">{calculateHours(staff).toFixed(2)}</div>
+                  </div>
+                  <button onClick={() => setStaffList(prev => prev.length > 1 ? prev.filter(s => s.id !== staff.id) : prev)} className="p-2.5 text-slate-300 hover:text-red-500 transition-colors"><Trash2 size={18} /></button>
                 </div>
               </div>
             </div>
           ))}
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-4">
-          <button onClick={addStaff} className="flex-1 bg-white border-2 border-dashed border-slate-300 text-slate-400 py-3 rounded-xl hover:border-blue-400 hover:text-blue-500 font-bold flex items-center justify-center gap-2 tracking-tight transition-all active:scale-[0.98]">
-            <Plus size={20} /> スタッフを追加
-          </button>
-          <div className="flex-1 bg-slate-900 rounded-xl p-4 text-white flex justify-between items-center shadow-lg">
-            <div className="flex items-center gap-2 text-slate-400 font-bold uppercase tracking-widest text-xs">Day Total</div>
-            <div className="text-3xl font-black text-blue-400">{dailyTotal.toFixed(2)}</div>
+        <div className="bg-slate-900 rounded-[2.5rem] p-8 text-white flex justify-between items-center shadow-2xl">
+          <div className="flex items-center gap-5">
+            <div className="bg-blue-500 p-4 rounded-3xl"><TrendingUp size={32} /></div>
+            <div>
+              <p className="text-blue-300 text-xs font-black uppercase tracking-widest mb-1">Daily Total</p>
+              <h2 className="text-5xl font-black tracking-tighter">{dailyTotal.toFixed(2)} <span className="text-xl text-blue-400">h</span></h2>
+            </div>
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-3">
-          <button 
-            onClick={handleSave} 
-            className="flex-[2] bg-blue-600 text-white py-4 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-blue-700 shadow-xl active:scale-[0.98] transition-all"
-          >
-            <Save size={22} /> データを確定保存
-          </button>
-          <Link 
-            href="/history" 
-            className="flex-1 bg-slate-200 text-slate-700 py-4 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-slate-300 transition-all active:scale-[0.98]"
-          >
-            履歴を見る <ArrowRight size={18} />
-          </Link>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <button onClick={() => setStaffList(prev => [...prev, { id: Date.now().toString(), name: '', startTime: '19:00', endTime: '22:00', breakMinutes: 0 }])} className="md:col-span-1 bg-white border-2 border-dashed border-slate-300 text-slate-400 py-4 rounded-3xl font-bold flex items-center justify-center gap-2 hover:border-blue-500 transition-all"><Plus size={20} /> 追加</button>
+          <button onClick={handleSave} className="md:col-span-2 bg-blue-600 text-white py-4 rounded-3xl font-black flex items-center justify-center gap-3 hover:bg-blue-700 shadow-xl transition-all active:scale-[0.98]"><Save size={24} /> 合計を保存</button>
+          <Link href="/history" className="md:col-span-1 bg-white border border-slate-200 text-slate-600 py-4 rounded-3xl font-bold flex items-center justify-center gap-2 hover:bg-slate-100 transition-all text-sm">履歴を見る <ArrowRight size={16} /></Link>
         </div>
-
       </div>
     </main>
   );
 }
 
-export default function Page() {
-  return (
-    <Suspense fallback={<div className="p-8 text-center text-slate-400 font-bold">読み込み中...</div>}>
-      <AttendanceContent />
-    </Suspense>
-  );
-}
+export default function Page() { return <Suspense fallback={<div>Loading...</div>}><AttendanceContent /></Suspense>; }
