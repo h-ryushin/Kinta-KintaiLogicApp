@@ -150,7 +150,8 @@ function AttendanceContent() {
           </div>
           <p className="text-[11px] font-bold text-slate-500 leading-relaxed">
             出勤: 「〜時入り」「〜時出勤」「〜時開始」　退勤: 「〜時上がり」「〜時退勤」「〜時終了」のように話してください！！<br></br>
-            例「19時入り、23時15分上がり」
+            例「19時入り、23時15分上がり」<br></br>
+            休憩は手打ちでお願いします！！
             <br />
             <span className="text-blue-500 text-[10px]">音声入力の精度は完全ではないので目視の確認してください！</span>
           </p>
