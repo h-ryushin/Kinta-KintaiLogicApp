@@ -21,7 +21,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </div>
 
         {/* --- 下部ナビゲーション（悪さ解消版） --- */}
-        <nav className="fixed bottom-0 left-0 right-0 z-[100] px-4 pb-6 pt-3">
+        <nav className="px-4 pb-6 pt-3">
           <div className="max-w-md mx-auto bg-white/80 backdrop-blur-xl border border-slate-200/50 flex justify-around p-3 rounded-3xl shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.1)] transition-all hover:bg-white">
             
             <Link href="/" className="flex flex-col items-center gap-1.5 px-8 py-1 rounded-2xl text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-all active:scale-90 group">
