@@ -81,15 +81,72 @@ function AttendanceContent() {
     setStaffList(prev => prev.map(s => s.id === id ? { ...s, [field]: value } : s));
   };
 
+  // const startListening = (staffId: string) => {
+  //   const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitRecognition;
+  //   if (!SpeechRecognition) return alert("Chromeを使用してください");
+  //   const recognition = new SpeechRecognition();
+  //   recognition.lang = 'ja-JP';
+  //   recognition.onstart = () => setActiveListeningId(staffId);
+  //   recognition.onend = () => setActiveListeningId(null);
+  //   recognition.onresult = (event: any) => {
+  //     const transcript = event.results[0][0].transcript.replace(/[０-９]/g, (s: string) => String.fromCharCode(s.charCodeAt(0) - 0xFEE0)).replace(/[：:。、.？?]/g, '');
+  //     setStaffList(prev => prev.map(staff => {
+  //       if (staff.id !== staffId) return staff;
+  //       let updated = { ...staff };
+  //       const parseTime = (keywords: string[], isStart: boolean) => {
+  //         const regex = new RegExp(`(?:(\\d+)\\s*時)?\\s*(\\d+)?\\s*分?\\s*(?:${keywords.join('|')})|(?:${keywords.join('|')})\\s*(?:(\\d+)\\s*時)?\\s*(\\d+)?\\s*分?`);
+  //         const m = transcript.match(regex);
+  //         if (m) {
+  //           let h = parseInt(m[1] || m[3]);
+  //           const min = m[2] || m[4] || "00";
+  //           if (!isNaN(h)) {
+  //             if (isStart && h < 15) h += 12;
+  //             if (!isStart && h >= 8 && h < 12) h += 12;
+  //             return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
+  //           }
+  //         }
+  //         return null;
+  //       };
+  //       const st = parseTime(["入り", "出勤", "開始"], true), et = parseTime(["上がり", "退勤", "終了"], false);
+  //       if (st) updated.startTime = st; if (et) updated.endTime = et;
+  //       return updated;
+  //     }));
+  //   };
+  //   recognition.start();
+  // };
   const startListening = (staffId: string) => {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitRecognition;
-    if (!SpeechRecognition) return alert("Chromeを使用してください");
+    // iOS/Safari/Chrome共通の呼び出し方
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    
+    if (!SpeechRecognition) {
+      alert("お使いのブラウザは音声入力に対応していません。キーボードのマイクボタンを使ってください。");
+      return;
+    }
+
     const recognition = new SpeechRecognition();
     recognition.lang = 'ja-JP';
-    recognition.onstart = () => setActiveListeningId(staffId);
-    recognition.onend = () => setActiveListeningId(null);
+    recognition.continuous = false; // 1回ごとに終了させる（iOSで安定させるため）
+    recognition.interimResults = false;
+
+    recognition.onstart = () => {
+      setActiveListeningId(staffId);
+    };
+
+    recognition.onend = () => {
+      setActiveListeningId(null);
+    };
+
+    recognition.onerror = (event: any) => {
+      console.error("音声認識エラー:", event.error);
+      setActiveListeningId(null);
+      if(event.error === 'not-allowed') alert("マイクの使用が許可されていません。設定を確認してください。");
+    };
+
     recognition.onresult = (event: any) => {
-      const transcript = event.results[0][0].transcript.replace(/[０-９]/g, (s: string) => String.fromCharCode(s.charCodeAt(0) - 0xFEE0)).replace(/[：:。、.？?]/g, '');
+      const transcript = event.results[0][0].transcript
+        .replace(/[０-９]/g, (s: string) => String.fromCharCode(s.charCodeAt(0) - 0xFEE0))
+        .replace(/[：:。、.？?]/g, '');
+
       setStaffList(prev => prev.map(staff => {
         if (staff.id !== staffId) return staff;
         let updated = { ...staff };
@@ -107,12 +164,21 @@ function AttendanceContent() {
           }
           return null;
         };
-        const st = parseTime(["入り", "出勤", "開始"], true), et = parseTime(["上がり", "退勤", "終了"], false);
-        if (st) updated.startTime = st; if (et) updated.endTime = et;
+        const st = parseTime(["入り", "出勤", "開始"], true);
+        const et = parseTime(["上がり", "退勤", "終了"], false);
+        if (st) updated.startTime = st; 
+        if (et) updated.endTime = et;
         return updated;
       }));
     };
-    recognition.start();
+
+    // iOSでは「ユーザーの操作（クリック）」の直後じゃないと動かないので、
+    // ここで直接呼び出す
+    try {
+      recognition.start();
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   return (
