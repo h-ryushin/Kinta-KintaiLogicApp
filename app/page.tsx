@@ -166,12 +166,12 @@ function AttendanceContent() {
         <div className="bg-blue-50/50 rounded-3xl p-6 border border-blue-100/50 space-y-3">
           <div className="flex items-center gap-2 text-blue-600">
             <Mic size={16} className="animate-pulse" />
-            <span className="text-xs font-black tracking-widest uppercase">音声入力の使い方（{shopDisplayName}）</span>
+            <span className="text-xs font-black tracking-widest uppercase">音声入力の使い方</span>
           </div>
           <p className="text-[11px] font-bold text-slate-500 leading-relaxed">
             例「19時入り、23時15分上がり」と話してください。休憩は手動入力です。
             <br />
-            <span className="text-blue-500 text-[10px]">※iPhoneのSafariやPCのChromeで動作します。</span>
+            <span className="text-blue-500 text-[10px]">※一部のブラウザ端末では動かない可能性があります🙏<br></br>音声入力の精度の都合上目視で時間を確認お願いします</span>
           </p>
         </div>
 
