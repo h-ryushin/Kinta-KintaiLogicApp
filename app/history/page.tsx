@@ -1,106 +1,157 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { Calendar, ArrowLeft, Trash2, History as HistoryIcon } from 'lucide-react';
+import React, { useState, useEffect, Suspense } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { Calendar, Clock, Store, ArrowLeft, Loader2, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
+
+// --- Firebase ---
 import { db } from '@/lib/firebase';
-import { collection, getDocs, deleteDoc, doc } from 'firebase/firestore';
+import { collection, getDocs, query } from 'firebase/firestore';
 
-interface DailySummary {
-  date: string;
-  totalHours: number;
-}
-
-interface MonthlyGroup {
-  month: string;
-  days: DailySummary[];
-  monthTotal: number;
-}
-
-export default function HistoryPage() {
-  const [groups, setGroups] = useState<MonthlyGroup[]>([]);
+function HistoryContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  
+  // URLから表示する店舗を取得（デフォルトは西駅店）
+  const shopParam = searchParams.get('shop') || 'nishieki';
+  const [shop, setShop] = useState(shopParam);
+  const [historyData, setHistoryData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchHistory = async () => {
+  const shopDisplayName = shop === 'nishieki' ? '西駅店' : '湖西店';
+
+  // データを取得する関数
+  const fetchHistory = async (currentShop: string) => {
     setLoading(true);
     try {
-      const querySnapshot = await getDocs(collection(db, "kintai"));
-      const allRecords: DailySummary[] = [];
-      querySnapshot.forEach((doc) => {
-        allRecords.push({ date: doc.id, totalHours: doc.data().totalHours || 0 });
-      });
+      // kintai > [店舗名] > dailyData コレクションを取得
+      const historyRef = collection(db, "kintai", currentShop, "dailyData");
+      const querySnapshot = await getDocs(query(historyRef));
+      
+      const data = querySnapshot.docs.map(doc => ({
+        id: doc.id, // 日付 (YYYY-MM-DD)
+        ...doc.data()
+      }));
 
-      // 日付を古い順 (3/1 -> 3/2)
-      allRecords.sort((a, b) => a.date.localeCompare(b.date));
-
-      const groupMap: { [key: string]: MonthlyGroup } = {};
-      allRecords.forEach(record => {
-        const [year, month] = record.date.split('-');
-        const monthKey = `${year}/${month}`;
-        if (!groupMap[monthKey]) groupMap[monthKey] = { month: monthKey, days: [], monthTotal: 0 };
-        groupMap[monthKey].days.push(record);
-        groupMap[monthKey].monthTotal += record.totalHours;
-      });
-
-      const sortedGroups = Object.values(groupMap).sort((a, b) => b.month.localeCompare(a.month));
-      setGroups(sortedGroups);
+      // 日付の新しい順に並び替え
+      data.sort((a, b) => b.id.localeCompare(a.id));
+      setHistoryData(data);
     } catch (error) {
-      console.error("履歴取得失敗:", error);
+      console.error("履歴取得エラー:", error);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { fetchHistory(); }, []);
+  useEffect(() => {
+    fetchHistory(shop);
+  }, [shop]);
 
-  const handleDelete = async (date: string) => {
-    if (!confirm(`${date} のデータを削除しますか？`)) return;
-    try {
-      await deleteDoc(doc(db, "kintai", date));
-      fetchHistory();
-    } catch (error) { console.error("削除失敗:", error); }
+  const handleShopChange = (newShop: string) => {
+    setShop(newShop);
+    router.push(`/history?shop=${newShop}`);
   };
 
   return (
-    <main className="min-h-screen bg-slate-50 text-slate-900 p-4 sm:p-8 pb-40">
-      <div className="max-w-xl mx-auto space-y-8">
-        <header className="bg-white rounded-3xl shadow-sm border border-slate-200 p-6 flex justify-between items-center">
-          <div className="flex items-center gap-4">
-            <Link href="/" className="p-2 hover:bg-slate-100 rounded-full transition-colors"><ArrowLeft size={20} /></Link>
-            <div className="bg-slate-900 p-3 rounded-2xl text-white"><HistoryIcon size={24} /></div>
-            <h1 className="text-xl font-black tracking-tight">勤務実績</h1>
-          </div>
+    <main className="min-h-screen bg-slate-50 text-slate-900 p-4 sm:p-8 pb-20">
+      <div className="max-w-2xl mx-auto space-y-6">
+        
+        {/* ヘッダー */}
+        <header className="flex items-center justify-between mb-8">
+          <button 
+            onClick={() => router.push(`/?shop=${shop}`)}
+            className="p-2 hover:bg-white rounded-2xl transition-all text-slate-400 hover:text-blue-600 shadow-sm border border-transparent hover:border-slate-200"
+          >
+            <ArrowLeft size={24} />
+          </button>
+          <h1 className="text-xl font-black tracking-tight flex items-center gap-2">
+            <Calendar className="text-blue-600" size={20} /> 勤務履歴
+          </h1>
+          <div className="w-10"></div>
         </header>
 
-        {loading ? (
-          <div className="text-center py-20 font-black text-slate-300">読み込み中...</div>
-        ) : (
-          <div className="space-y-10">
-            {groups.map((group) => (
-              <div key={group.month} className="space-y-4">
-                <div className="flex justify-between items-end px-4">
-                  <h2 className="text-2xl font-black text-slate-800">{group.month.split('/')[1]}月</h2>
-                  <div className="text-right">
-                    <span className="text-[10px] font-black text-blue-500 uppercase tracking-widest block">Monthly</span>
-                    <span className="text-xl font-black text-blue-600">{group.monthTotal.toFixed(2)}h</span>
+        {/* 店舗切り替えタブ */}
+        <div className="flex bg-slate-200 p-1 rounded-2xl w-full shadow-inner mb-8">
+          <button 
+            onClick={() => handleShopChange('nishieki')} 
+            className={`flex-1 py-3 rounded-xl text-xs font-black transition-all ${shop === 'nishieki' ? 'bg-white shadow-md text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
+          >
+            西駅店
+          </button>
+          <button 
+            onClick={() => handleShopChange('kosai')} 
+            className={`flex-1 py-3 rounded-xl text-xs font-black transition-all ${shop === 'kosai' ? 'bg-white shadow-md text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
+          >
+            湖西店
+          </button>
+        </div>
+
+        <div className="space-y-4">
+          <div className="flex justify-between items-end px-2">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+              {shopDisplayName} の保存済みデータ
+            </p>
+          </div>
+
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-20 text-slate-400 gap-3">
+              <Loader2 className="animate-spin" size={32} />
+              <p className="text-sm font-bold tracking-tighter">読み込み中...</p>
+            </div>
+          ) : historyData.length > 0 ? (
+            historyData.map((item) => (
+              <div key={item.id} className="bg-white rounded-[2rem] p-6 border border-slate-200 shadow-sm hover:border-blue-300 transition-all group">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="bg-blue-50 p-3 rounded-2xl text-blue-500 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                      <Calendar size={20} />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-black text-slate-800 tracking-tight">{item.id}</h3>
+                      <p className="text-[10px] text-slate-400 font-bold flex items-center gap-1 uppercase">
+                        <Store size={10} /> {shopDisplayName}
+                      </p>
+                    </div>
                   </div>
-                </div>
-                <div className="bg-white rounded-[2rem] border border-slate-200 shadow-sm overflow-hidden">
-                  {group.days.map((day, idx) => (
-                    <div key={day.date} className={`flex justify-between items-center p-5 ${idx !== group.days.length - 1 ? 'border-b border-slate-50' : ''}`}>
-                      <span className="font-bold text-slate-600">{day.date.replace(/-/g, '/')}</span>
-                      <div className="flex items-center gap-6">
-                        <span className="text-lg font-black text-slate-800">{day.totalHours.toFixed(2)}<span className="text-xs ml-1 text-slate-400">h</span></span>
-                        <button onClick={() => handleDelete(day.date)} className="text-slate-200 hover:text-red-500 transition-colors"><Trash2 size={16} /></button>
+                  <div className="text-right flex items-center gap-4">
+                    <div>
+                      <div className="flex items-center gap-1 text-blue-600 justify-end">
+                        <span className="text-3xl font-black tracking-tighter">{Number(item.totalHours || 0).toFixed(2)}</span>
+                        <span className="text-[10px] font-black mt-2">H</span>
                       </div>
                     </div>
-                  ))}
+                    <button 
+                      onClick={() => router.push(`/?date=${item.id}&shop=${shop}`)}
+                      className="p-2 text-slate-300 hover:text-blue-500 transition-colors"
+                    >
+                      <ChevronRight size={20} />
+                    </button>
+                  </div>
                 </div>
               </div>
-            ))}
-          </div>
-        )}
+            ))
+          ) : (
+            <div className="bg-white rounded-[2.5rem] p-16 border-2 border-dashed border-slate-200 text-center">
+              <p className="text-slate-400 font-bold text-sm">履歴がまだありません</p>
+              <button 
+                onClick={() => router.push(`/?shop=${shop}`)}
+                className="mt-4 text-xs font-black text-blue-500 hover:underline"
+              >
+                最初のデータを入力する
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </main>
+  );
+}
+
+export default function HistoryPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center font-bold">Loading...</div>}>
+      <HistoryContent />
+    </Suspense>
   );
 }
