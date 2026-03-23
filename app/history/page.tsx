@@ -8,13 +8,22 @@ import { Calendar, Clock, Store, ArrowLeft, Loader2, ChevronRight, Trash2, Calen
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, doc, deleteDoc } from 'firebase/firestore';
 
+// データの型を定義
+interface HistoryItem {
+  id: string;
+  totalHours: number;
+  shopName?: string;
+  updatedAt?: any;
+}
+
 function HistoryContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   
   const shopParam = searchParams.get('shop') || 'nishieki';
   const [shop, setShop] = useState(shopParam);
-  const [groupedHistory, setGroupedHistory] = useState<Record<string, { items: any[], monthTotal: number }>>({});
+  // 型を定義したオブジェクトを使用
+  const [groupedHistory, setGroupedHistory] = useState<Record<string, { items: HistoryItem[], monthTotal: number }>>({});
   const [loading, setLoading] = useState(true);
 
   const shopDisplayName = shop === 'nishieki' ? '西駅店' : '湖西店';
@@ -25,14 +34,15 @@ function HistoryContent() {
       const historyRef = collection(db, "kintai", currentShop, "dailyData");
       const querySnapshot = await getDocs(query(historyRef));
       
+      // ここで型を HistoryItem として明示的に指定
       const rawData = querySnapshot.docs.map(doc => ({
         id: doc.id,
-        ...doc.data()
-      }));
+        ...(doc.data() as Omit<HistoryItem, 'id'>)
+      })) as HistoryItem[];
 
       rawData.sort((a, b) => b.id.localeCompare(a.id));
 
-      const groups: Record<string, { items: any[], monthTotal: number }> = {};
+      const groups: Record<string, { items: HistoryItem[], monthTotal: number }> = {};
       rawData.forEach(item => {
         const [year, month] = item.id.split('-');
         const monthKey = `${year}年${month}月`;
@@ -41,6 +51,7 @@ function HistoryContent() {
           groups[monthKey] = { items: [], monthTotal: 0 };
         }
         groups[monthKey].items.push(item);
+        // 型定義により item.totalHours にアクセス可能に
         groups[monthKey].monthTotal += Number(item.totalHours || 0);
       });
 
@@ -52,14 +63,12 @@ function HistoryContent() {
     }
   };
 
-  // ★ 削除機能を追加
   const handleDelete = async (dateId: string) => {
-    if (!confirm(`${dateId} のデータを削除してもよろしいですか？`)) return;
+    if (!window.confirm(`${dateId} のデータを削除してもよろしいですか？`)) return;
 
     try {
       const docRef = doc(db, "kintai", shop, "dailyData", dateId);
       await deleteDoc(docRef);
-      // 削除後、データを再取得して画面を更新
       fetchHistory(shop);
     } catch (error) {
       console.error("削除エラー:", error);
@@ -78,7 +87,6 @@ function HistoryContent() {
     <main className="min-h-screen bg-[#F8FAFC] text-slate-900 p-4 sm:p-8 pb-20">
       <div className="max-w-2xl mx-auto space-y-8">
         
-        {/* ヘッダー */}
         <header className="flex items-center justify-between">
           <button 
             onClick={() => router.push(`/?shop=${shop}`)}
@@ -93,7 +101,6 @@ function HistoryContent() {
           <div className="w-11"></div>
         </header>
 
-        {/* 店舗切り替え（カラーはブルーに統一） */}
         <div className="flex bg-slate-200/50 p-1.5 rounded-[2rem] w-full shadow-inner border border-slate-200">
           <button 
             onClick={() => handleShopChange('nishieki')} 
@@ -112,12 +119,11 @@ function HistoryContent() {
         {loading ? (
           <div className="flex flex-col items-center justify-center py-24 gap-4">
             <Loader2 className="animate-spin text-blue-500" size={32} />
-            <p className="text-xs font-black text-slate-400 tracking-widest">LOADING...</p>
+            <p className="text-xs font-black text-slate-400 tracking-widest uppercase">Loading...</p>
           </div>
         ) : Object.keys(groupedHistory).length > 0 ? (
           Object.entries(groupedHistory).map(([month, data]) => (
             <section key={month} className="space-y-4">
-              {/* 月の見出し */}
               <div className="flex items-end justify-between px-2">
                 <div className="flex items-center gap-3">
                   <div className="w-2 h-8 bg-blue-500 rounded-full" />
@@ -131,7 +137,6 @@ function HistoryContent() {
                 </div>
               </div>
 
-              {/* カードリスト */}
               <div className="grid gap-3">
                 {data.items.map((item) => (
                   <div 
@@ -154,15 +159,13 @@ function HistoryContent() {
                       <div className="text-right">
                         <div className="flex items-baseline gap-1 text-slate-800">
                           <span className="text-2xl font-black tracking-tighter leading-none">{Number(item.totalHours || 0).toFixed(2)}</span>
-                          <span className="text-[10px] font-black opacity-40">hrs</span>
+                          <span className="text-[10px] font-black opacity-40 uppercase">hrs</span>
                         </div>
                       </div>
                       
-                      {/* ★ 削除ボタン（ゴミ箱アイコン） */}
                       <button 
                         onClick={(e) => { e.stopPropagation(); handleDelete(item.id); }}
                         className="p-2 text-slate-200 hover:text-red-500 transition-colors z-20"
-                        title="削除"
                       >
                         <Trash2 size={18} />
                       </button>
