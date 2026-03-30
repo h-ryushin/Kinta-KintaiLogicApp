@@ -9,7 +9,7 @@ const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "勤怠計算アプリ",
-  description: "平野くんが作った勤怠管理アプリ",
+  description: "勤怠管理アプリ",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
