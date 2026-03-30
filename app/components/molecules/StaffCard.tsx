@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { Trash2, Mic, User } from 'lucide-react';
+import { Trash2, Mic, User, Calculator } from 'lucide-react'; // 👈 Calculator を追加
 import { IconButton } from '../atoms/IconButton';
 
 interface StaffCardProps {
@@ -28,6 +28,8 @@ export const StaffCard: React.FC<StaffCardProps> = ({
       () => setIsListening(false)
     );
   };
+
+  const hours = calculateHours(staff);
 
   return (
     <div className={`bg-white rounded-3xl border ${isListening ? 'border-red-400 shadow-lg shadow-red-50' : 'border-slate-200'} p-4 shadow-sm hover:border-blue-200 transition-all duration-300`}>
@@ -66,30 +68,19 @@ export const StaffCard: React.FC<StaffCardProps> = ({
           </div>
 
           <div className="flex items-center gap-2 mt-1">
-            <input 
-              type="time" 
-              value={staff.startTime} 
-              onChange={(e) => onUpdate(staff.id, 'startTime', e.target.value)} 
-              className={`flex-1 ${isListening ? 'bg-red-50 text-red-600' : 'bg-slate-50'} border-none rounded-2xl p-2.5 text-sm font-black text-center transition-colors outline-none`} 
-            />
+            <input type="time" value={staff.startTime} onChange={(e) => onUpdate(staff.id, 'startTime', e.target.value)} className={`flex-1 ${isListening ? 'bg-red-50 text-red-600' : 'bg-slate-50'} border-none rounded-2xl p-2.5 text-sm font-black text-center transition-colors outline-none`} />
             <span className="text-slate-300 font-bold">~</span>
-            <input 
-              type="time" 
-              value={staff.endTime} 
-              onChange={(e) => onUpdate(staff.id, 'endTime', e.target.value)} 
-              className={`flex-1 ${isListening ? 'bg-red-50 text-red-600' : 'bg-slate-50'} border-none rounded-2xl p-2.5 text-sm font-black text-center transition-colors outline-none`} 
-            />
+            <input type="time" value={staff.endTime} onChange={(e) => onUpdate(staff.id, 'endTime', e.target.value)} className={`flex-1 ${isListening ? 'bg-red-50 text-red-600' : 'bg-slate-50'} border-none rounded-2xl p-2.5 text-sm font-black text-center transition-colors outline-none`} />
           </div>
         </div>
 
         {/* 休憩・合計・削除エリア */}
         <div className="flex items-end gap-3 w-full lg:w-auto">
-          {/* 🔥 休憩時間の修正ポイント */}
+          {/* 休憩時間の修正 */}
           <div className="w-20">
             <label className="text-[10px] font-black text-slate-400 mb-1 block text-center leading-none tracking-widest">BREAK</label>
             <input 
               type="number" 
-              // 文字列に変換して渡すことで、ブラウザの「04」補完を防ぐ
               value={staff.breakMinutes === 0 ? "0" : Number(staff.breakMinutes).toString()}
               inputMode="numeric"
               onChange={(e) => {
@@ -100,17 +91,20 @@ export const StaffCard: React.FC<StaffCardProps> = ({
             />
           </div>
 
-          {/* 合計表示 */}
-          <div className="flex-1 lg:w-28 bg-blue-50 rounded-2xl p-2.5 text-center border border-blue-100 font-black text-blue-700 min-w-[70px]">
-            <span className="text-xs opacity-50 mr-1">計</span>
-            {calculateHours(staff).toFixed(2)}
+          {/* 👈 ダサい「計」を爆速修正した合計表示 */}
+          <div className="flex items-center gap-3 bg-blue-50/50 rounded-2xl px-5 py-2 border border-blue-100/50 shadow-inner shadow-blue-100/30 min-w-[120px]">
+            {/* 数字をガツンと大きく */}
+            <div className="text-right flex-1">
+              <p className="text-[9px] font-bold text-blue-400 uppercase tracking-widest">TOTAL</p>
+              <span className="text-3xl font-black text-blue-700 tabular-nums leading-none">
+                {hours.toFixed(2)}
+              </span>
+              <span className="text-xs font-black text-blue-400 ml-0.5">H</span>
+            </div>
           </div>
 
           {/* 削除ボタン */}
-          <IconButton 
-            onClick={onDelete} 
-            className="text-slate-200 hover:text-red-500 bg-slate-50 hover:bg-red-50 transition-all rounded-xl p-2"
-          >
+          <IconButton onClick={onDelete} className="text-slate-200 hover:text-red-500 bg-slate-50 hover:bg-red-50 transition-all rounded-xl p-2 mt-1">
             <Trash2 size={18} />
           </IconButton>
         </div>
