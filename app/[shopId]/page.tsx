@@ -176,7 +176,7 @@ function AttendanceContent() {
 
         <div className="bg-white rounded-3xl p-4 border border-slate-100 shadow-sm flex items-center gap-3">
           <HelpCircle size={18} className="text-slate-300" />
-          <p className="text-[11px] text-slate-500 font-bold">「17時入り22時上がり」のように喋ってください。<span className="text-slate-300 ml-2 font-normal">(3.5秒無音で完了)</span></p>
+          <p className="text-[11px] text-slate-500 font-bold">音声入力を使う場合「17時3分入り22時30分上がり」のように喋ってください。<br />休憩は手打ちでお願いします。</p>
         </div>
 
         <div className="grid gap-3">
