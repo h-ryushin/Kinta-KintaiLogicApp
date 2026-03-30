@@ -19,7 +19,6 @@ function AttendanceContent() {
   const [staffList, setStaffList] = useState<any[]>([]);
   
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
-
   const shopDisplayName = shop === 'kosai' ? '湖西店' : '西駅店';
 
   useEffect(() => {
@@ -42,26 +41,21 @@ function AttendanceContent() {
   const startListening = (staffId: string, onStart: () => void, onEnd: () => void) => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) return;
-    
     const recognition = new SpeechRecognition();
     recognition.lang = 'ja-JP';
-    recognition.continuous = true; 
-    
+    recognition.continuous = true;
+    recognition.interimResults = true;
+
     const resetTimer = () => {
       if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-      silenceTimerRef.current = setTimeout(() => {
-        recognition.stop(); 
-      }, 3000);
+      silenceTimerRef.current = setTimeout(() => { recognition.stop(); }, 3500);
     };
 
-    recognition.onstart = () => {
-      onStart();
-      resetTimer();
-    };
-
+    recognition.onstart = () => { onStart(); resetTimer(); };
     recognition.onresult = (event: any) => {
-      resetTimer(); 
-      const transcript = event.results[event.results.length - 1][0].transcript.replace(/[０-９]/g, (s: string) => String.fromCharCode(s.charCodeAt(0) - 0xFEE0));
+      resetTimer();
+      const lastIndex = event.results.length - 1;
+      const transcript = event.results[lastIndex][0].transcript.replace(/[０-９]/g, (s: string) => String.fromCharCode(s.charCodeAt(0) - 0xFEE0));
       const times = transcript.match(/\d{1,2}/g);
       if (times && times.length >= 2) {
         const start = `${times[0].padStart(2, '0')}:${(times[1] || '00').padStart(2, '0')}`;
@@ -71,10 +65,7 @@ function AttendanceContent() {
         setStaffList(prev => prev.map(s => s.id === staffId ? { ...s, startTime: start, endTime: end } : s));
       }
     };
-    recognition.onend = () => {
-      onEnd();
-      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-    };
+    recognition.onend = () => { onEnd(); if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current); };
     recognition.start();
   };
 
@@ -91,15 +82,13 @@ function AttendanceContent() {
   const handleSave = async () => {
     const docRef = doc(db, "kintai", shop, "dailyData", date);
     const docSnap = await getDoc(docRef);
-    if (docSnap.exists()) {
-      if (!window.confirm(`警告：${date} は既に保存済みです。上書きしますか？`)) return;
-    }
+    if (docSnap.exists() && !window.confirm(`警告：${date} は既に保存済みです。上書きしますか？`)) return;
     await setDoc(docRef, { id: date, date, shop, totalHours: dailyTotal, staffList, updatedAt: Date.now() });
     setShowToast(true); setTimeout(() => setShowToast(false), 2000);
   };
 
   return (
-    <main className="min-h-screen bg-slate-50 p-4 sm:p-8 pb-48 font-sans text-slate-900">
+    <main className="min-h-screen bg-slate-50 p-4 sm:p-8 font-sans text-slate-900 overflow-x-hidden">
       <div className="max-w-4xl mx-auto space-y-6">
         {showToast && <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[150] bg-slate-900 text-white px-6 py-3 rounded-full shadow-2xl">保存完了！</div>}
         
@@ -111,25 +100,14 @@ function AttendanceContent() {
           <input type="date" value={date} onChange={(e) => { setDate(e.target.value); router.push(`/${shop}?date=${e.target.value}`); }} className="bg-slate-100 rounded-xl px-4 py-2 font-black outline-none border-none shadow-inner" />
         </header>
 
-        {/* さりげないガイド */}
         <div className="bg-white rounded-3xl p-4 border border-slate-100 shadow-sm flex items-center gap-3">
           <HelpCircle size={18} className="text-slate-300" />
-          <p className="text-[11px] text-slate-500 font-bold">
-            「17時から21時」のように喋ると自動入力されます。
-            <span className="text-slate-300 ml-2 font-normal">(3秒無音で完了)</span>
-          </p>
+          <p className="text-[11px] text-slate-500 font-bold">「17時から21時」のように喋ると自動入力されます。<span className="text-slate-300 ml-2 font-normal">(3秒無音で完了)</span></p>
         </div>
 
         <div className="grid gap-3">
           {staffList.map((staff) => (
-            <StaffCard 
-              key={staff.id} 
-              staff={staff} 
-              onUpdate={(id, f, v) => setStaffList(prev => prev.map(s => s.id === id ? { ...s, [f]: v } : s))} 
-              onDelete={() => setStaffList(prev => prev.filter(s => s.id !== staff.id))} 
-              onVoiceInput={startListening} 
-              calculateHours={calculateHours} 
-            />
+            <StaffCard key={staff.id} staff={staff} onUpdate={(id, f, v) => setStaffList(prev => prev.map(s => s.id === id ? { ...s, [f]: v } : s))} onDelete={() => setStaffList(prev => prev.filter(s => s.id !== staff.id))} onVoiceInput={startListening} calculateHours={calculateHours} />
           ))}
         </div>
 
@@ -137,24 +115,20 @@ function AttendanceContent() {
           <div className="flex items-center gap-5">
             <div className="bg-blue-600 p-4 rounded-3xl shadow-lg shadow-blue-500/20"><TrendingUp size={32} /></div>
             <div>
-              <p className="text-blue-300 text-[10px] font-black mb-1 uppercase tracking-widest">Daily Total</p>
+              <p className="text-blue-300 text-[10px] font-black mb-1 uppercase tracking-widest">Total Hours</p>
               <h2 className="text-5xl font-black tabular-nums">{dailyTotal.toFixed(2)} <span className="text-xl text-blue-400 font-bold">H</span></h2>
             </div>
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-8">
-          <button onClick={() => setStaffList(prev => [...prev, { id: Date.now().toString(), name: '', startTime: '17:30', endTime: '22:00', breakMinutes: 0 }])} className="bg-white border border-slate-200 text-slate-400 py-4 rounded-[2rem] font-bold active:scale-95 transition-all flex items-center justify-center gap-2">
-            <Plus size={20} /><span>追加</span>
-          </button>
-          <button onClick={handleSave} className="md:col-span-2 bg-blue-600 text-white py-4 rounded-[2rem] font-black shadow-xl shadow-blue-200 active:scale-95 transition-all flex items-center justify-center gap-3 text-lg">
-            <Save size={24} /><span>保存する</span>
-          </button>
-          {/* 🔥 ここを HistoryIcon に修正したよ！ */}
-          <Link href={`/${shop}/history`} className="bg-slate-100 text-slate-500 py-4 rounded-[2rem] font-bold active:scale-95 transition-all flex items-center justify-center gap-2">
-            <HistoryIcon size={18} /><span>履歴</span>
-          </Link>
+          <button onClick={() => setStaffList(prev => [...prev, { id: Date.now().toString(), name: '', startTime: '17:30', endTime: '22:00', breakMinutes: 0 }])} className="bg-white border border-slate-200 text-slate-400 py-4 rounded-[2rem] font-bold active:scale-95 transition-all flex items-center justify-center gap-2"><Plus size={20} /><span>追加</span></button>
+          <button onClick={handleSave} className="md:col-span-2 bg-blue-600 text-white py-4 rounded-[2rem] font-black shadow-xl shadow-blue-200 active:scale-95 hover:bg-blue-700 transition-all flex items-center justify-center gap-3 text-lg"><Save size={24} /><span>保存する</span></button>
+          <Link href={`/${shop}/history`} className="bg-slate-100 text-slate-500 py-4 rounded-[2rem] font-bold active:scale-95 transition-all flex items-center justify-center gap-2"><HistoryIcon size={18} /><span>履歴</span></Link>
         </div>
+
+        {/* 👈 これ！一番下にデカい余白を物理的に作る */}
+        <div className="h-30 w-full flex-shrink-0" aria-hidden="true" />
       </div>
     </main>
   );
