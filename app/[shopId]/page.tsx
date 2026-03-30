@@ -38,34 +38,72 @@ function AttendanceContent() {
     loadSavedData();
   }, [date, shop]);
 
+  // 🔥 精度復活版：音声入力ロジック
   const startListening = (staffId: string, onStart: () => void, onEnd: () => void) => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) return;
+    
     const recognition = new SpeechRecognition();
     recognition.lang = 'ja-JP';
     recognition.continuous = true;
-    recognition.interimResults = true;
+    recognition.interimResults = false; // 👈 精度を出すために false に戻す
+
+    const stopRecognition = () => {
+      recognition.stop();
+      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+    };
 
     const resetTimer = () => {
       if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-      silenceTimerRef.current = setTimeout(() => { recognition.stop(); }, 3500);
+      silenceTimerRef.current = setTimeout(() => {
+        stopRecognition(); // 3.5秒無音なら停止
+      }, 3500);
     };
 
-    recognition.onstart = () => { onStart(); resetTimer(); };
-    recognition.onresult = (event: any) => {
+    recognition.onstart = () => {
+      onStart();
       resetTimer();
+    };
+
+    recognition.onspeechstart = () => {
+      // 喋り始めたらタイマーをリセットして粘る
+      resetTimer();
+    };
+
+    recognition.onresult = (event: any) => {
+      resetTimer(); // 結果が出た時もリセット
+      
       const lastIndex = event.results.length - 1;
       const transcript = event.results[lastIndex][0].transcript.replace(/[０-９]/g, (s: string) => String.fromCharCode(s.charCodeAt(0) - 0xFEE0));
+      
+      // 数字を抽出
       const times = transcript.match(/\d{1,2}/g);
       if (times && times.length >= 2) {
-        const start = `${times[0].padStart(2, '0')}:${(times[1] || '00').padStart(2, '0')}`;
-        let endH = times.length >= 4 ? times[2] : (times.length === 3 ? times[2] : times[1]);
-        let endM = times.length >= 4 ? times[3] : '00';
-        const end = `${endH.padStart(2, '0')}:${endM.padStart(2, '0')}`;
+        const startH = times[0].padStart(2, '0');
+        const startM = (times[1] && parseInt(times[1]) < 60) ? times[1].padStart(2, '0') : '00';
+        
+        let endH = "22", endM = "00";
+        if (times.length >= 4) {
+          endH = times[2].padStart(2, '0');
+          endM = times[3].padStart(2, '0');
+        } else if (times.length === 3) {
+          endH = times[2].padStart(2, '0');
+        } else if (times.length === 2) {
+          endH = times[1].padStart(2, '0');
+        }
+
+        const start = `${startH}:${startM}`;
+        const end = `${endH}:${endM}`;
+        
         setStaffList(prev => prev.map(s => s.id === staffId ? { ...s, startTime: start, endTime: end } : s));
       }
     };
-    recognition.onend = () => { onEnd(); if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current); };
+
+    recognition.onend = () => {
+      onEnd();
+      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+    };
+
     recognition.start();
   };
 
@@ -97,7 +135,7 @@ function AttendanceContent() {
             <p className="text-[10px] font-black text-blue-500 uppercase tracking-widest mb-1 leading-none">Management</p>
             <h1 className="text-2xl font-black flex items-center gap-2"><Store size={20} className="text-blue-500" />{shopDisplayName}</h1>
           </div>
-          <input type="date" value={date} onChange={(e) => { setDate(e.target.value); router.push(`/${shop}?date=${e.target.value}`); }} className="bg-slate-100 rounded-xl px-4 py-2 font-black outline-none border-none shadow-inner" />
+          <input type="date" value={date} onChange={(e) => { setDate(e.target.value); router.push(`/${shop}?date=${e.target.value}`); }} className="bg-slate-100 rounded-xl px-4 py-2 font-black outline-none border-none shadow-inner text-slate-700" />
         </header>
 
         <div className="bg-white rounded-3xl p-4 border border-slate-100 shadow-sm flex items-center gap-3">
@@ -127,8 +165,7 @@ function AttendanceContent() {
           <Link href={`/${shop}/history`} className="bg-slate-100 text-slate-500 py-4 rounded-[2rem] font-bold active:scale-95 transition-all flex items-center justify-center gap-2"><HistoryIcon size={18} /><span>履歴</span></Link>
         </div>
 
-        {/* 👈 これ！一番下にデカい余白を物理的に作る */}
-        <div className="h-30 w-full flex-shrink-0" aria-hidden="true" />
+        <div className="h-40 w-full flex-shrink-0" aria-hidden="true" />
       </div>
     </main>
   );
