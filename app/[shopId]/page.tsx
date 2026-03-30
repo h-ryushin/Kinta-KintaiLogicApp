@@ -19,6 +19,8 @@ function AttendanceContent() {
   const [staffList, setStaffList] = useState<any[]>([]);
   
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const recognitionRef = useRef<any>(null);
+
   const shopDisplayName = shop === 'kosai' ? '湖西店' : '西駅店';
 
   useEffect(() => {
@@ -38,68 +40,82 @@ function AttendanceContent() {
     loadSavedData();
   }, [date, shop]);
 
-  // 🔥 精度復活版：音声入力ロジック
+  // 🔥 改良版：時間抽出ロジック
   const startListening = (staffId: string, onStart: () => void, onEnd: () => void) => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) return;
     
     const recognition = new SpeechRecognition();
+    recognitionRef.current = recognition;
     recognition.lang = 'ja-JP';
     recognition.continuous = true;
-    recognition.interimResults = false; // 👈 精度を出すために false に戻す
+    recognition.interimResults = true; // 👈 喋ってる最中もタイマーをリセットし続けるために重要
 
-    const stopRecognition = () => {
-      recognition.stop();
-      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-    };
-
-    const resetTimer = () => {
+    const resetTimer = (source: string) => {
       if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
       silenceTimerRef.current = setTimeout(() => {
-        stopRecognition(); // 3.5秒無音なら停止
-      }, 3500);
+        console.log("🛑 4秒無音が続いたため停止します");
+        recognition.stop();
+      }, 2000); // 👈 4秒に少し延長
     };
 
     recognition.onstart = () => {
+      console.log("🎙️ 音声入力開始");
       onStart();
-      resetTimer();
-    };
-
-    recognition.onspeechstart = () => {
-      // 喋り始めたらタイマーをリセットして粘る
-      resetTimer();
+      resetTimer("開始");
     };
 
     recognition.onresult = (event: any) => {
-      resetTimer(); // 結果が出た時もリセット
+      resetTimer("結果受信"); // 👈 喋っている限りタイマーを伸ばす
       
       const lastIndex = event.results.length - 1;
-      const transcript = event.results[lastIndex][0].transcript.replace(/[０-９]/g, (s: string) => String.fromCharCode(s.charCodeAt(0) - 0xFEE0));
+      const result = event.results[lastIndex];
       
-      // 数字を抽出
-      const times = transcript.match(/\d{1,2}/g);
-      if (times && times.length >= 2) {
-        const startH = times[0].padStart(2, '0');
-        const startM = (times[1] && parseInt(times[1]) < 60) ? times[1].padStart(2, '0') : '00';
-        
-        let endH = "22", endM = "00";
-        if (times.length >= 4) {
-          endH = times[2].padStart(2, '0');
-          endM = times[3].padStart(2, '0');
-        } else if (times.length === 3) {
-          endH = times[2].padStart(2, '0');
-        } else if (times.length === 2) {
-          endH = times[1].padStart(2, '0');
-        }
+      // 確定したときだけ解析（中間結果でもタイマーリセットは走るので止まらない）
+      if (result.isFinal) {
+        const text = result[0].transcript
+          .replace(/[０-９]/g, (s: string) => String.fromCharCode(s.charCodeAt(0) - 0xFEE0))
+          .replace(/[ァ-ン]/g, (s: string) => String.fromCharCode(s.charCodeAt(0) - 0x60));
 
-        const start = `${startH}:${startM}`;
-        const end = `${endH}:${endM}`;
-        
-        setStaffList(prev => prev.map(s => s.id === staffId ? { ...s, startTime: start, endTime: end } : s));
+        console.log(`✅ 解析対象テキスト: "${text}"`);
+
+        // 時間抽出を改善（"17時28分入り" から 17:28 を正しく抜く）
+        const extractTime = (sentence: string, keywords: string[]) => {
+          for (const word of keywords) {
+            if (sentence.includes(word)) {
+              const part = sentence.split(word)[0]; // キーワード以前を取得
+              // 「XX時XX分」または「XX時半」または「XX時」を探す
+              const timeMatch = part.match(/(\d{1,2})時(?:(\d{1,2})分|(半))?$/) || part.match(/(\d{1,2}):(\d{1,2})$/);
+              
+              if (timeMatch) {
+                const h = timeMatch[1].padStart(2, '0');
+                let m = "00";
+                if (timeMatch[2]) m = timeMatch[2].padStart(2, '0');
+                else if (timeMatch[3] === "半") m = "30";
+                
+                console.log(`🎯 抽出成功: ${h}:${m} (キーワード: ${word})`);
+                return `${h}:${m}`;
+              }
+            }
+          }
+          return null;
+        };
+
+        const start = extractTime(text, ["入り", "から", "スタート", "はじめ"]);
+        const end = extractTime(text, ["上がり", "まで", "おわり", "だし"]);
+
+        if (start || end) {
+          setStaffList(prev => prev.map(s => s.id === staffId ? {
+            ...s,
+            startTime: start || s.startTime,
+            endTime: end || s.endTime
+          } : s));
+        }
       }
     };
 
     recognition.onend = () => {
+      console.log("🔌 セッション終了");
       onEnd();
       if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
     };
@@ -131,16 +147,13 @@ function AttendanceContent() {
         {showToast && <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[150] bg-slate-900 text-white px-6 py-3 rounded-full shadow-2xl">保存完了！</div>}
         
         <header className="bg-white rounded-3xl border border-slate-200 p-6 flex justify-between items-center shadow-sm">
-          <div>
-            <p className="text-[10px] font-black text-blue-500 uppercase tracking-widest mb-1 leading-none">Management</p>
-            <h1 className="text-2xl font-black flex items-center gap-2"><Store size={20} className="text-blue-500" />{shopDisplayName}</h1>
-          </div>
+          <div><p className="text-[10px] font-black text-blue-500 uppercase tracking-widest mb-1 leading-none">Management</p><h1 className="text-2xl font-black flex items-center gap-2"><Store size={20} className="text-blue-500" />{shopDisplayName}</h1></div>
           <input type="date" value={date} onChange={(e) => { setDate(e.target.value); router.push(`/${shop}?date=${e.target.value}`); }} className="bg-slate-100 rounded-xl px-4 py-2 font-black outline-none border-none shadow-inner text-slate-700" />
         </header>
 
         <div className="bg-white rounded-3xl p-4 border border-slate-100 shadow-sm flex items-center gap-3">
           <HelpCircle size={18} className="text-slate-300" />
-          <p className="text-[11px] text-slate-500 font-bold">「17時から21時」のように喋ると自動入力されます。<span className="text-slate-300 ml-2 font-normal">(3秒無音で完了)</span></p>
+          <p className="text-[11px] text-slate-500 font-bold">音声入力を使用する場合「17時3分入り22時5分上がり」のように喋ると、自動で時間登録されます。<br />休憩は手打ちで入力お願いします。</p>
         </div>
 
         <div className="grid gap-3">
@@ -150,13 +163,7 @@ function AttendanceContent() {
         </div>
 
         <div className="bg-slate-900 rounded-[2.5rem] p-8 text-white flex justify-between items-center shadow-2xl mt-4 border border-slate-800">
-          <div className="flex items-center gap-5">
-            <div className="bg-blue-600 p-4 rounded-3xl shadow-lg shadow-blue-500/20"><TrendingUp size={32} /></div>
-            <div>
-              <p className="text-blue-300 text-[10px] font-black mb-1 uppercase tracking-widest">Total Hours</p>
-              <h2 className="text-5xl font-black tabular-nums">{dailyTotal.toFixed(2)} <span className="text-xl text-blue-400 font-bold">H</span></h2>
-            </div>
-          </div>
+          <div className="flex items-center gap-5"><div className="bg-blue-600 p-4 rounded-3xl shadow-lg shadow-blue-500/20"><TrendingUp size={32} /></div><div><p className="text-blue-300 text-[10px] font-black mb-1 uppercase tracking-widest leading-none mb-1">Total Hours</p><h2 className="text-5xl font-black tabular-nums leading-none">{dailyTotal.toFixed(2)} <span className="text-xl text-blue-400 font-bold">H</span></h2></div></div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-8">
