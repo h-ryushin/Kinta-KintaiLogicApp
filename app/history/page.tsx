@@ -2,197 +2,137 @@
 
 import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Calendar, Clock, Store, ArrowLeft, Loader2, ChevronRight, Trash2, CalendarDays } from 'lucide-react';
-
-// --- Firebase ---
+import { ArrowLeft, Loader2, Trash2, CalendarDays, ChevronRight } from 'lucide-react';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, query, doc, deleteDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, deleteDoc, setDoc, getDoc } from 'firebase/firestore';
 
-// データの型を定義
 interface HistoryItem {
-  id: string;
+  id: string; 
+  date: string;
   totalHours: number;
-  shopName?: string;
-  updatedAt?: any;
+  updatedAt: number;
 }
 
 function HistoryContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  
   const shopParam = searchParams.get('shop') || 'nishieki';
   const [shop, setShop] = useState(shopParam);
-  // 型を定義したオブジェクトを使用
   const [groupedHistory, setGroupedHistory] = useState<Record<string, { items: HistoryItem[], monthTotal: number }>>({});
   const [loading, setLoading] = useState(true);
-
-  const shopDisplayName = shop === 'nishieki' ? '西駅店' : '湖西店';
 
   const fetchHistory = async (currentShop: string) => {
     setLoading(true);
     try {
       const historyRef = collection(db, "kintai", currentShop, "dailyData");
-      const querySnapshot = await getDocs(query(historyRef));
-      
-      // ここで型を HistoryItem として明示的に指定
+      const querySnapshot = await getDocs(historyRef);
       const rawData = querySnapshot.docs.map(doc => ({
         id: doc.id,
-        ...(doc.data() as Omit<HistoryItem, 'id'>)
+        ...(doc.data() as any)
       })) as HistoryItem[];
-
+      
       rawData.sort((a, b) => b.id.localeCompare(a.id));
-
       const groups: Record<string, { items: HistoryItem[], monthTotal: number }> = {};
       rawData.forEach(item => {
-        const [year, month] = item.id.split('-');
+        const dateId = item.id; // 👈 IDを日付として使う
+        const [year, month] = dateId.split('-');
+        if (!year || !month) return;
         const monthKey = `${year}年${month}月`;
-        
-        if (!groups[monthKey]) {
-          groups[monthKey] = { items: [], monthTotal: 0 };
-        }
-        groups[monthKey].items.push(item);
-        // 型定義により item.totalHours にアクセス可能に
+        if (!groups[monthKey]) groups[monthKey] = { items: [], monthTotal: 0 };
+        groups[monthKey].items.push({ ...item, date: dateId });
         groups[monthKey].monthTotal += Number(item.totalHours || 0);
       });
-
       setGroupedHistory(groups);
-    } catch (error) {
-      console.error("履歴取得エラー:", error);
-    } finally {
-      setLoading(false);
-    }
+    } catch (error) { console.error(error); } finally { setLoading(false); }
+  };
+
+  const handleEditDate = async (oldDate: string, newDate: string, itemData: any) => {
+    if (!newDate || newDate === oldDate) return;
+
+    try {
+      const newRef = doc(db, "kintai", shop, "dailyData", newDate);
+      const newSnap = await getDoc(newRef);
+      if (newSnap.exists() && !window.confirm(`${newDate} のデータを上書きして移動しますか？`)) return;
+
+      setLoading(true);
+      // 1. 新しい日付で保存。このとき、中身の id と date も新しい日付に書き換える！
+      await setDoc(newRef, { 
+        ...itemData, 
+        id: newDate,    // 👈 ここ重要！
+        date: newDate,  // 👈 ここ重要！
+        updatedAt: Date.now() 
+      });
+      
+      // 2. 古い日付を削除
+      await deleteDoc(doc(db, "kintai", shop, "dailyData", oldDate));
+      
+      // 3. 反映を待って再取得
+      setTimeout(() => fetchHistory(shop), 300);
+    } catch (error) { console.error(error); setLoading(false); }
   };
 
   const handleDelete = async (dateId: string) => {
-    if (!window.confirm(`${dateId} のデータを削除してもよろしいですか？`)) return;
-
+    if (!window.confirm(`${dateId} を完全に消去しますか？`)) return;
     try {
-      const docRef = doc(db, "kintai", shop, "dailyData", dateId);
-      await deleteDoc(docRef);
-      fetchHistory(shop);
-    } catch (error) {
-      console.error("削除エラー:", error);
-      alert("削除に失敗しました。");
-    }
+      setLoading(true);
+      await deleteDoc(doc(db, "kintai", shop, "dailyData", dateId));
+      setTimeout(() => fetchHistory(shop), 300);
+    } catch (error) { console.error(error); setLoading(false); }
   };
 
   useEffect(() => { fetchHistory(shop); }, [shop]);
 
-  const handleShopChange = (newShop: string) => {
-    setShop(newShop);
-    router.push(`/history?shop=${newShop}`);
-  };
-
   return (
-    <main className="min-h-screen bg-[#F8FAFC] text-slate-900 p-4 sm:p-8 pb-20">
+    <main className="min-h-screen bg-[#F8FAFC] p-4 sm:p-8 pb-20">
       <div className="max-w-2xl mx-auto space-y-8">
-        
-        <header className="flex items-center justify-between">
-          <button 
-            onClick={() => router.push(`/?shop=${shop}`)}
-            className="p-3 bg-white hover:bg-slate-50 rounded-2xl transition-all shadow-sm border border-slate-200"
-          >
-            <ArrowLeft size={20} className="text-slate-400" />
-          </button>
-          <div className="text-center">
-            <h1 className="text-lg font-black tracking-tight text-slate-800">勤務履歴</h1>
-            <p className="text-[10px] font-bold text-blue-500 uppercase tracking-widest">{shopDisplayName}</p>
-          </div>
+        <header className="flex justify-between items-center">
+          <button onClick={() => router.push(`/?shop=${shop}`)} className="p-3 bg-white rounded-2xl border active:scale-90"><ArrowLeft size={20} /></button>
+          <div className="text-center"><h1 className="text-lg font-black text-slate-800">勤務履歴</h1><p className="text-[10px] font-bold text-blue-500 uppercase">{shop === 'nishieki' ? '西駅店' : '湖西店'}</p></div>
           <div className="w-11"></div>
         </header>
 
-        <div className="flex bg-slate-200/50 p-1.5 rounded-[2rem] w-full shadow-inner border border-slate-200">
-          <button 
-            onClick={() => handleShopChange('nishieki')} 
-            className={`flex-1 py-3 rounded-[1.6rem] text-xs font-black transition-all ${shop === 'nishieki' ? 'bg-white shadow-lg text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
-          >
-            西駅店
-          </button>
-          <button 
-            onClick={() => handleShopChange('kosai')} 
-            className={`flex-1 py-3 rounded-[1.6rem] text-xs font-black transition-all ${shop === 'kosai' ? 'bg-white shadow-lg text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
-          >
-            湖西店
-          </button>
+        <div className="flex bg-slate-200/50 p-1.5 rounded-[2rem] border">
+          <button onClick={() => { setShop('nishieki'); router.push(`/history?shop=nishieki`); }} className={`flex-1 py-3 rounded-[1.6rem] text-xs font-black transition-all ${shop === 'nishieki' ? 'bg-white shadow text-blue-600' : 'text-slate-500'}`}>西駅店</button>
+          <button onClick={() => { setShop('kosai'); router.push(`/history?shop=kosai`); }} className={`flex-1 py-3 rounded-[1.6rem] text-xs font-black transition-all ${shop === 'kosai' ? 'bg-white shadow text-blue-600' : 'text-slate-500'}`}>湖西店</button>
         </div>
 
-        {loading ? (
-          <div className="flex flex-col items-center justify-center py-24 gap-4">
-            <Loader2 className="animate-spin text-blue-500" size={32} />
-            <p className="text-xs font-black text-slate-400 tracking-widest uppercase">Loading...</p>
-          </div>
-        ) : Object.keys(groupedHistory).length > 0 ? (
+        {loading ? <Loader2 className="animate-spin mx-auto py-24 text-blue-500" size={32} /> : (
           Object.entries(groupedHistory).map(([month, data]) => (
             <section key={month} className="space-y-4">
-              <div className="flex items-end justify-between px-2">
-                <div className="flex items-center gap-3">
-                  <div className="w-2 h-8 bg-blue-500 rounded-full" />
-                  <h2 className="text-xl font-black text-slate-800 tracking-tight">{month}</h2>
-                </div>
-                <div className="bg-blue-50 border border-blue-100 px-4 py-2 rounded-2xl text-right">
-                  <p className="text-[9px] font-black text-blue-400 uppercase mb-1">Monthly Total</p>
-                  <p className="text-lg font-black text-blue-700 leading-none">
-                    {data.monthTotal.toFixed(2)} <span className="text-[10px]">H</span>
-                  </p>
-                </div>
+              <div className="flex justify-between items-center px-2">
+                <h2 className="text-xl font-black text-slate-800">{month}</h2>
+                <div className="bg-blue-50 px-4 py-2 rounded-2xl text-lg font-black text-blue-700">{data.monthTotal.toFixed(2)} H</div>
               </div>
-
               <div className="grid gap-3">
                 {data.items.map((item) => (
-                  <div 
-                    key={item.id} 
-                    className="group bg-white rounded-[2rem] p-5 border border-slate-200 shadow-sm flex items-center justify-between hover:border-blue-200 transition-all relative overflow-hidden"
-                  >
-                    <div className="flex items-center gap-4 flex-1 cursor-pointer" onClick={() => router.push(`/?date=${item.id}&shop=${shop}`)}>
-                      <div className="bg-slate-50 p-3 rounded-[1.2rem] text-slate-400 group-hover:bg-blue-50 group-hover:text-blue-500 transition-colors">
-                        <CalendarDays size={20} />
-                      </div>
-                      <div>
-                        <h3 className="text-[15px] font-black text-slate-700">{item.id}</h3>
-                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">
-                          {shopDisplayName}
-                        </p>
-                      </div>
-                    </div>
-                    
+                  <div key={`${item.id}_${item.updatedAt}`} className="bg-white rounded-[2rem] p-5 border flex items-center justify-between shadow-sm hover:border-blue-200 transition-all">
                     <div className="flex items-center gap-4">
-                      <div className="text-right">
-                        <div className="flex items-baseline gap-1 text-slate-800">
-                          <span className="text-2xl font-black tracking-tighter leading-none">{Number(item.totalHours || 0).toFixed(2)}</span>
-                          <span className="text-[10px] font-black opacity-40 uppercase">hrs</span>
-                        </div>
+                      <div className="relative bg-slate-50 p-3 rounded-2xl text-slate-400">
+                        <CalendarDays size={20} />
+                        <input type="date" className="absolute inset-0 opacity-0 cursor-pointer" onChange={(e) => handleEditDate(item.id, e.target.value, item)} />
                       </div>
-                      
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); handleDelete(item.id); }}
-                        className="p-2 text-slate-200 hover:text-red-500 transition-colors z-20"
-                      >
-                        <Trash2 size={18} />
-                      </button>
-                      
-                      <div className="p-1 cursor-pointer" onClick={() => router.push(`/?date=${item.id}&shop=${shop}`)}>
-                        <ChevronRight size={20} className="text-slate-300 group-hover:text-blue-500 transition-all" />
+                      <h3 className="font-black text-slate-700 text-[15px] cursor-pointer relative">
+                        {item.id}
+                        <input type="date" className="absolute inset-0 opacity-0 cursor-pointer w-full" onChange={(e) => handleEditDate(item.id, e.target.value, item)} />
+                      </h3>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="text-right mr-1">
+                        <span className="text-2xl font-black text-slate-800">{item.totalHours.toFixed(2)}</span>
+                        <span className="text-[10px] font-black opacity-30 ml-1">HRS</span>
                       </div>
+                      <button onClick={() => handleDelete(item.id)} className="text-slate-200 hover:text-red-500 p-2"><Trash2 size={18} /></button>
+                      <button onClick={() => router.push(`/?date=${item.id}&shop=${shop}`)} className="text-slate-300 hover:text-blue-500 p-1"><ChevronRight size={22} /></button>
                     </div>
                   </div>
                 ))}
               </div>
             </section>
           ))
-        ) : (
-          <div className="bg-white rounded-[3rem] p-20 border-2 border-dashed border-slate-200 text-center">
-            <p className="text-slate-500 font-black text-lg">履歴がまだありません</p>
-          </div>
         )}
       </div>
     </main>
   );
 }
 
-export default function HistoryPage() {
-  return (
-    <Suspense fallback={<div className="p-8 text-center font-bold text-blue-500">Loading...</div>}>
-      <HistoryContent />
-    </Suspense>
-  );
-}
+export default function HistoryPage() { return <Suspense fallback={<div>Loading...</div>}><HistoryContent /></Suspense>; }
