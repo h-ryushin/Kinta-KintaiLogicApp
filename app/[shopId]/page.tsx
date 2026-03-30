@@ -201,7 +201,7 @@ function AttendanceContent() {
           <Link href={`/${shop}/history`} className="bg-slate-100 text-slate-500 py-4 rounded-[2rem] font-bold active:scale-95 transition-all flex items-center justify-center gap-2"><HistoryIcon size={18} /><span>履歴</span></Link>
         </div>
 
-        <div className="h-40 w-full flex-shrink-0" aria-hidden="true" />
+        <div className="h-10 w-full flex-shrink-0" aria-hidden="true" />
       </div>
     </main>
   );

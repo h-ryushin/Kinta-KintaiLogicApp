@@ -161,7 +161,7 @@ function HistoryContent() {
             </section>
           ))
         )}
-        <div className="h-40 w-full flex-shrink-0" aria-hidden="true" />
+        <div className="h-10 w-full flex-shrink-0" aria-hidden="true" />
       </div>
     </main>
   );
