@@ -10,7 +10,6 @@ export const metadata: Metadata = {
   title: "勤怠管理システム | Management App",
   description: "スタッフの勤務時間を正確に記録・計算するための専用管理ツールです。",
   viewport: "width=device-width, initial-scale=1, maximum-scale=1",
-  // LINEやSNSでの見栄え（OGP設定）
   openGraph: {
     title: "勤怠管理システム",
     description: "勤務時間の管理",

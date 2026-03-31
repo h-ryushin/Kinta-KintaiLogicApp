@@ -110,7 +110,7 @@ function AttendanceContent() {
     let start = toMin(s.startTime), end = toMin(s.endTime);
     if (end < start) end += 1440;
     const diff = end - start - s.breakMinutes;
-    return diff > 0 ? Math.floor((diff / 60) * 100) / 100 : 0;
+    return diff > 0 ? Math.round((diff / 60) * 100) / 100 : 0;
   };
 
   const dailyTotal = staffList.reduce((sum, staff) => sum + calculateHours(staff), 0);
