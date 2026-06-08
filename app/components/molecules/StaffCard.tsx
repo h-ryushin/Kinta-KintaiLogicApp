@@ -91,9 +91,7 @@ export const StaffCard: React.FC<StaffCardProps> = ({
             />
           </div>
 
-          {/* 👈 ダサい「計」を爆速修正した合計表示 */}
           <div className="flex items-center gap-3 bg-blue-50/50 rounded-2xl px-5 py-2 border border-blue-100/50 shadow-inner shadow-blue-100/30 min-w-[120px]">
-            {/* 数字をガツンと大きく */}
             <div className="text-right flex-1">
               <p className="text-[9px] font-bold text-blue-400 uppercase tracking-widest">TOTAL</p>
               <span className="text-3xl font-black text-blue-700 tabular-nums leading-none">
