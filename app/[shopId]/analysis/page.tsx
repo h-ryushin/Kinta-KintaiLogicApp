@@ -30,12 +30,8 @@ function AnalysisContent() {
     const filteredChartData = allData.filter(day => day.monthKey === selectedMonth);
 
     // 選択された月の「平均人時売上高」を算出
-    //   const monthlyAverageEfficiency = filteredChartData.length > 0
-    //     ? Math.round(filteredChartData.reduce((sum, day) => sum + day.salesEfficiency, 0) / filteredChartData.length)
-    //     : 0;
-    const activeDaysData = filteredChartData.filter(day => day.sales > 0);
-    const monthlyAverageEfficiency = activeDaysData.length > 0
-        ? Math.round(activeDaysData.reduce((sum, day) => sum + day.salesEfficiency, 0) / activeDaysData.length)
+      const monthlyAverageEfficiency = filteredChartData.length > 0
+        ? Math.round(filteredChartData.reduce((sum, day) => sum + day.salesEfficiency, 0) / filteredChartData.length)
         : 0;
 
     if (loading) {
