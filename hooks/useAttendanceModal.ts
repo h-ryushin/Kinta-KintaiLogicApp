@@ -1,15 +1,18 @@
+// hooks/useAttendanceModal.ts
 import { useState } from 'react';
 import { db } from '@/lib/firebase';
-import { doc, getDoc, setDoc } from 'firebase/firestore'
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 interface UseAttendanceModalProps {
     shop: string;
     date: string;
     staffList: any[];
     dailyTotal: number;
-    setShowToast: React.Dispatch<React.SetStateAction<boolean>>; // トースト表示用のリモコン
+    sales: number; // 🟢 1. 画面から売上金を仕入れるように追加！
+    setShowToast: React.Dispatch<React.SetStateAction<boolean>>;
 }
-export function useAttendanceModal({ shop, date, staffList, dailyTotal, setShowToast }: UseAttendanceModalProps) {
+
+export function useAttendanceModal({ shop, date, staffList, dailyTotal, sales, setShowToast }: UseAttendanceModalProps) {
     const [modal, setModal] = useState<{
         show: boolean;
         title: string;
@@ -23,13 +26,24 @@ export function useAttendanceModal({ shop, date, staffList, dailyTotal, setShowT
         onConfirm: () => { },
         type: 'info'
     });
+
     const executeSave = async () => {
         const docRef = doc(db, "kintai", shop, "dailyData", date);
-        await setDoc(docRef, { id: date, date, shop, totalHours: dailyTotal, staffList, updatedAt: Date.now() });
+        // 🟢 2. Firebaseに保存するオブジェクトの中に「sales」と、ついでに「albaTotalHours」なども混ぜて保存する！
+        await setDoc(docRef, { 
+            id: date, 
+            date, 
+            shop, 
+            totalHours: dailyTotal, 
+            sales: sales, // ◀ ココ！
+            staffList, 
+            updatedAt: Date.now() 
+        });
         setModal(prev => ({ ...prev, show: false }));
         setShowToast(true);
         setTimeout(() => setShowToast(false), 2000);
     };
+
     const handleSaveClick = async () => {
         const docRef = doc(db, "kintai", shop, "dailyData", date);
         const docSnap = await getDoc(docRef);
@@ -52,9 +66,10 @@ export function useAttendanceModal({ shop, date, staffList, dailyTotal, setShowT
             });
         }
     };
+
     return {
         modal,
-        setModal,          // モーダルを閉じる時にも使うので一緒に返しておくと便利！
+        setModal,
         handleSaveClick
     };
 }

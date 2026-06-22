@@ -1,24 +1,24 @@
 "use client";
 import { CalendarDays, Trash2, ChevronRight } from 'lucide-react';
-import { IconButton } from '../atoms/IconButton';
+import { IconButton } from '../../../../components/atoms/IconButton';
 
 export const HistoryItem = ({ item, onEditDate, onDelete, onGoToDetail }: any) => (
   <div className="bg-white rounded-[2rem] p-5 border border-slate-200 shadow-sm flex items-center justify-between hover:border-blue-200 transition-all group">
     <div className="flex items-center gap-4">
       <div className="relative bg-slate-50 p-3 rounded-2xl text-slate-400 group-hover:text-blue-500 transition-colors">
         <CalendarDays size={20} />
-        <input 
-          type="date" 
-          className="absolute inset-0 opacity-0 cursor-pointer" 
-          onChange={(e) => onEditDate(item.id, e.target.value, item)} 
+        <input
+          type="date"
+          className="absolute inset-0 opacity-0 cursor-pointer"
+          onChange={(e) => onEditDate(item.id, e.target.value, item)}
         />
       </div>
       <div className="relative">
         <h3 className="font-black text-slate-700 text-[15px]">{item.id}</h3>
-        <input 
-          type="date" 
-          className="absolute inset-0 opacity-0 cursor-pointer w-full" 
-          onChange={(e) => onEditDate(item.id, e.target.value, item)} 
+        <input
+          type="date"
+          className="absolute inset-0 opacity-0 cursor-pointer w-full"
+          onChange={(e) => onEditDate(item.id, e.target.value, item)}
         />
       </div>
     </div>

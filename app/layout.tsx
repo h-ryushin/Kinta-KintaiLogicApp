@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import { BottomNav } from "../components/organisms/BottomNav";
+// import { BottomNav } from "../components/organisms/BottomNav";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -24,7 +24,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <div className="min-h-screen pb-40">
           {children}
         </div>
-        <BottomNav />
+        {/* <BottomNav /> */}
       </body>
     </html>
   );
