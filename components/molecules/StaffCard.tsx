@@ -8,43 +8,37 @@ interface StaffCardProps {
   staff: any;
   onUpdate: (id: string, field: string, value: any) => void;
   onDelete: () => void;
-  onVoiceInput: (staffId: string, onStart: () => void, onEnd: () => void) => void;
+  // onVoiceInput: (staffId: string, onStart: () => void, onEnd: () => void) => void;
+  onVoiceInput: (staffId: string) => void;
+  isListening: boolean;
   calculateHours: (staff: any) => number;
 }
 
-export const StaffCard: React.FC<StaffCardProps> = ({ 
-  staff, 
-  onUpdate, 
-  onDelete, 
-  onVoiceInput, 
-  calculateHours 
+export const StaffCard: React.FC<StaffCardProps> = ({
+  staff,
+  onUpdate,
+  onDelete,
+  onVoiceInput,
+  isListening,
+  calculateHours
 }) => {
-  const [isListening, setIsListening] = useState(false);
-
-  const handleVoiceButtonClick = () => {
-    onVoiceInput(
-      staff.id, 
-      () => setIsListening(true),
-      () => setIsListening(false)
-    );
-  };
 
   const hours = calculateHours(staff);
 
   return (
     <div className={`bg-white rounded-3xl border ${isListening ? 'border-red-400 shadow-lg shadow-red-50' : 'border-slate-200'} p-4 shadow-sm hover:border-blue-200 transition-all duration-300`}>
       <div className="flex flex-col lg:flex-row items-end gap-4">
-        
+
         {/* 名前入力エリア */}
         <div className="w-full lg:w-48">
           <label className="text-[10px] font-black text-slate-400 mb-1 block leading-none tracking-widest">NAME</label>
           <div className="relative mt-1">
             <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
-            <input 
-              type="text" 
-              value={staff.name} 
+            <input
+              type="text"
+              value={staff.name}
               onChange={(e) => onUpdate(staff.id, 'name', e.target.value)}
-              className="w-full bg-slate-50 border-none rounded-2xl pl-9 pr-4 py-2.5 text-sm font-bold outline-none placeholder:text-slate-200" 
+              className="w-full bg-slate-50 border-none rounded-2xl pl-9 pr-4 py-2.5 text-sm font-bold outline-none placeholder:text-slate-200"
               placeholder="スタッフ名"
             />
           </div>
@@ -54,13 +48,12 @@ export const StaffCard: React.FC<StaffCardProps> = ({
         <div className="flex-1 w-full">
           <div className="flex justify-between items-center mb-1">
             <label className="text-[10px] font-black text-slate-400 leading-none tracking-widest">TIME</label>
-            <button 
-              onClick={handleVoiceButtonClick} 
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-black transition-all duration-300 active:scale-95 ${
-                isListening 
-                  ? 'bg-red-500 text-white animate-pulse' 
+            <button
+              onClick={() => onVoiceInput(staff.id)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-black transition-all duration-300 active:scale-95 ${isListening
+                  ? 'bg-red-500 text-white animate-pulse'
                   : 'bg-slate-900 text-white hover:bg-slate-700'
-              }`}
+                }`}
             >
               <Mic size={12} className={isListening ? "text-white" : "text-slate-400"} />
               <span>{isListening ? '録音中...' : '音声入力'}</span>
@@ -79,15 +72,15 @@ export const StaffCard: React.FC<StaffCardProps> = ({
           {/* 休憩時間の修正 */}
           <div className="w-20">
             <label className="text-[10px] font-black text-slate-400 mb-1 block text-center leading-none tracking-widest">BREAK</label>
-            <input 
-              type="number" 
+            <input
+              type="number"
               value={staff.breakMinutes === 0 ? "0" : Number(staff.breakMinutes).toString()}
               inputMode="numeric"
               onChange={(e) => {
                 const val = e.target.value === '' ? 0 : parseInt(e.target.value, 10);
                 onUpdate(staff.id, 'breakMinutes', val);
               }}
-              className="w-full bg-slate-50 border-none rounded-2xl p-2.5 text-sm font-black text-center mt-1 outline-none appearance-none" 
+              className="w-full bg-slate-50 border-none rounded-2xl p-2.5 text-sm font-black text-center mt-1 outline-none appearance-none"
             />
           </div>
 

@@ -5,97 +5,99 @@ import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, Loader2, AlertCircle, Calendar, Trash2 } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, doc, deleteDoc, setDoc, getDoc } from 'firebase/firestore';
-import { HistoryItem } from '../../components/organisms/HistoryItem';
+import { HistoryItem } from '../../../components/organisms/HistoryItem';
+import { useHistoryData } from '@/hooks/useHistoryData';
+import { useHistoryModal } from '@/hooks/useHistoryModal';
 
 function HistoryContent() {
   const router = useRouter();
   const params = useParams();
   const shop = params?.shopId as string;
-  const [groupedHistory, setGroupedHistory] = useState<Record<string, any>>({});
-  const [loading, setLoading] = useState(true);
-  
+  const { groupedHistory, loading, setLoading, fetchHistory } = useHistoryData({ shop });
+  const { modal, setModal, handleEditDate, handleDelete } = useHistoryModal({ shop, fetchHistory, setLoading });
+
   // 🔥 ポップアップの状態管理
-  const [modal, setModal] = useState<{
-    show: boolean;
-    title: string;
-    message: string;
-    onConfirm: () => void;
-    type: 'edit' | 'delete';
-  }>({
-    show: false,
-    title: '',
-    message: '',
-    onConfirm: () => {},
-    type: 'edit'
-  });
+  // const [modal, setModal] = useState<{
+  //   show: boolean;
+  //   title: string;
+  //   message: string;
+  //   onConfirm: () => void;
+  //   type: 'edit' | 'delete';
+  // }>({
+  //   show: false,
+  //   title: '',
+  //   message: '',
+  //   onConfirm: () => { },
+  //   type: 'edit'
+  // });
 
-  const fetchHistory = useCallback(async () => {
-    if (!shop) return;
-    setLoading(true);
-    try {
-      const historyRef = collection(db, "kintai", shop, "dailyData");
-      const querySnapshot = await getDocs(historyRef);
-      const rawData = querySnapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() as any) }));
-      rawData.sort((a, b) => b.id.localeCompare(a.id));
-      const groups: any = {};
-      rawData.forEach(item => {
-        if (!item.id || !item.id.includes('-')) return;
-        const [year, month] = item.id.split('-');
-        const monthKey = `${year}年${month}月`;
-        if (!groups[monthKey]) groups[monthKey] = { items: [], monthTotal: 0 };
-        groups[monthKey].items.push(item);
-        groups[monthKey].monthTotal += Number(item.totalHours || 0);
-      });
-      setGroupedHistory(groups);
-    } catch (error) { console.error(error); } finally { setLoading(false); }
-  }, [shop]);
+  // const fetchHistory = useCallback(async () => {
+  //   if (!shop) return;
+  //   setLoading(true);
+  //   try {
+  //     const historyRef = collection(db, "kintai", shop, "dailyData");
+  //     const querySnapshot = await getDocs(historyRef);
+  //     const rawData = querySnapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() as any) }));
+  //     rawData.sort((a, b) => b.id.localeCompare(a.id));
+  //     const groups: any = {};
+  //     rawData.forEach(item => {
+  //       if (!item.id || !item.id.includes('-')) return;
+  //       const [year, month] = item.id.split('-');
+  //       const monthKey = `${year}年${month}月`;
+  //       if (!groups[monthKey]) groups[monthKey] = { items: [], monthTotal: 0 };
+  //       groups[monthKey].items.push(item);
+  //       groups[monthKey].monthTotal += Number(item.totalHours || 0);
+  //     });
+  //     setGroupedHistory(groups);
+  //   } catch (error) { console.error(error); } finally { setLoading(false); }
+  // }, [shop]);
 
-  useEffect(() => { fetchHistory(); }, [fetchHistory]);
+  // useEffect(() => { fetchHistory(); }, [fetchHistory]);
 
   // 日付変更の処理（ポップアップから呼ばれる）
-  const executeEditDate = async (oldDate: string, newDate: string, itemData: any) => {
-    try {
-      setLoading(true);
-      const newRef = doc(db, "kintai", shop, "dailyData", newDate);
-      await setDoc(newRef, { ...itemData, id: newDate, date: newDate, updatedAt: Date.now() });
-      await deleteDoc(doc(db, "kintai", shop, "dailyData", oldDate));
-      await fetchHistory();
-    } catch (e) {
-      alert("変更に失敗しました。");
-    } finally {
-      setLoading(false);
-      setModal(prev => ({ ...prev, show: false }));
-    }
-  };
+  // const executeEditDate = async (oldDate: string, newDate: string, itemData: any) => {
+  //   try {
+  //     setLoading(true);
+  //     const newRef = doc(db, "kintai", shop, "dailyData", newDate);
+  //     await setDoc(newRef, { ...itemData, id: newDate, date: newDate, updatedAt: Date.now() });
+  //     await deleteDoc(doc(db, "kintai", shop, "dailyData", oldDate));
+  //     await fetchHistory();
+  //   } catch (e) {
+  //     alert("変更に失敗しました。");
+  //   } finally {
+  //     setLoading(false);
+  //     setModal(prev => ({ ...prev, show: false }));
+  //   }
+  // };
 
-  const handleEditDate = (oldDate: string, newDate: string, itemData: any) => {
-    if (!newDate || newDate === oldDate) return;
-    
-    // 🔥 ここでポップアップの内容をカスタマイズ！
-    setModal({
-      show: true,
-      title: "日付を変更しますか？",
-      message: `${oldDate} のデータを ${newDate} に移動します。よろしいですか？`,
-      type: 'edit',
-      onConfirm: () => executeEditDate(oldDate, newDate, itemData)
-    });
-  };
+  // const handleEditDate = (oldDate: string, newDate: string, itemData: any) => {
+  //   if (!newDate || newDate === oldDate) return;
 
-  const handleDelete = (dateId: string) => {
-    // 🔥 削除時のメッセージもカスタマイズ！
-    setModal({
-      show: true,
-      title: "データを削除しますか？",
-      message: `${dateId} の勤務記録を完全に削除します。この操作は取り消せません。`,
-      type: 'delete',
-      onConfirm: async () => {
-        setLoading(true);
-        await deleteDoc(doc(db, "kintai", shop, "dailyData", dateId));
-        await fetchHistory();
-        setModal(prev => ({ ...prev, show: false }));
-      }
-    });
-  };
+  //   // 🔥 ここでポップアップの内容をカスタマイズ！
+  //   setModal({
+  //     show: true,
+  //     title: "日付を変更しますか？",
+  //     message: `${oldDate} のデータを ${newDate} に移動します。よろしいですか？`,
+  //     type: 'edit',
+  //     onConfirm: () => executeEditDate(oldDate, newDate, itemData)
+  //   });
+  // };
+
+  // const handleDelete = (dateId: string) => {
+  //   // 🔥 削除時のメッセージもカスタマイズ！
+  //   setModal({
+  //     show: true,
+  //     title: "データを削除しますか？",
+  //     message: `${dateId} の勤務記録を完全に削除します。この操作は取り消せません。`,
+  //     type: 'delete',
+  //     onConfirm: async () => {
+  //       setLoading(true);
+  //       await deleteDoc(doc(db, "kintai", shop, "dailyData", dateId));
+  //       await fetchHistory();
+  //       setModal(prev => ({ ...prev, show: false }));
+  //     }
+  //   });
+  // };
 
   return (
     <main className="min-h-screen bg-[#F8FAFC] p-4 sm:p-8 font-sans overflow-x-hidden relative">
@@ -109,13 +111,13 @@ function HistoryContent() {
             <h3 className="text-xl font-black text-slate-900 mb-2">{modal.title}</h3>
             <p className="text-sm font-bold text-slate-500 leading-relaxed mb-8">{modal.message}</p>
             <div className="grid grid-cols-2 gap-3">
-              <button 
+              <button
                 onClick={() => setModal(prev => ({ ...prev, show: false }))}
                 className="py-4 rounded-2xl bg-slate-100 text-slate-500 font-black active:scale-95 transition-all"
               >
                 キャンセル
               </button>
-              <button 
+              <button
                 onClick={modal.onConfirm}
                 className={`py-4 rounded-2xl text-white font-black active:scale-95 transition-all shadow-lg ${modal.type === 'delete' ? 'bg-red-500 shadow-red-200' : 'bg-blue-600 shadow-blue-200'}`}
               >
@@ -149,12 +151,12 @@ function HistoryContent() {
               </div>
               <div className="grid gap-3">
                 {data.items.map((item: any) => (
-                  <HistoryItem 
-                    key={`${item.id}_${item.updatedAt}`} 
-                    item={item} 
-                    onEditDate={handleEditDate} 
-                    onDelete={handleDelete} 
-                    onGoToDetail={() => router.push(`/${shop}?date=${item.id}`)} 
+                  <HistoryItem
+                    key={`${item.id}_${item.updatedAt}`}
+                    item={item}
+                    onEditDate={handleEditDate}
+                    onDelete={handleDelete}
+                    onGoToDetail={() => router.push(`/${shop}?date=${item.id}`)}
                   />
                 ))}
               </div>

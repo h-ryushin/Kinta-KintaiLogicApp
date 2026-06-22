@@ -1,11 +1,10 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import { BottomNav } from "./components/organisms/BottomNav";
+import { BottomNav } from "../components/organisms/BottomNav";
 
 const inter = Inter({ subsets: ["latin"] });
 
-// 🔥 ここを修正！LINEの表示を「平野くん」から「プロ仕様」に変える
 export const metadata: Metadata = {
   title: "勤怠管理システム | Management App",
   description: "スタッフの勤務時間を正確に記録・計算するための専用管理ツールです。",

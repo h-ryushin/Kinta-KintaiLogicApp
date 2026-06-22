@@ -1,11 +1,14 @@
 "use client";
 
-import React, { useState, useEffect, Suspense, useRef } from 'react';
+import React, { useState, useEffect, Suspense, } from 'react';
 import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import { Plus, Save, TrendingUp, Store, HelpCircle, History as HistoryIcon, Calendar, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
-import { StaffCard } from '../components/molecules/StaffCard';
+import { StaffCard } from '../../components/molecules/StaffCard';
+import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
+import { useAttendanceModal } from '@/hooks/useAttendanceModal';
+import { useAttendanceData } from '@/hooks/useAttendanceData';
 import Link from 'next/link';
 
 function AttendanceContent() {
@@ -16,136 +19,18 @@ function AttendanceContent() {
   const dateParam = searchParams.get('date');
   const [date, setDate] = useState(dateParam || new Date().toISOString().split('T')[0]);
   const [showToast, setShowToast] = useState(false);
-  const [staffList, setStaffList] = useState<any[]>([]);
-  
-  const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const recognitionRef = useRef<any>(null);
-
-  // 🔥 ポップアップの状態管理
-  const [modal, setModal] = useState<{
-    show: boolean;
-    title: string;
-    message: string;
-    onConfirm: () => void;
-    type: 'success' | 'warning' | 'info';
-  }>({
-    show: false,
-    title: '',
-    message: '',
-    onConfirm: () => {},
-    type: 'info'
+  const { staffList, setStaffList, dailyTotal, calculateHours } = useAttendanceData({ shop, date });
+  // const { startListening, isListening } = useSpeechRecognition({ setStaffList });
+  const { startListening, listeningStaffId } = useSpeechRecognition({ setStaffList });
+  const shopDisplayName = shop === 'kosai' ? '湖西店' : '西駅店';
+  const { modal, setModal, handleSaveClick } = useAttendanceModal({
+    shop,
+    date,
+    staffList,
+    dailyTotal,
+    setShowToast
   });
 
-  const shopDisplayName = shop === 'kosai' ? '湖西店' : '西駅店';
-
-  useEffect(() => {
-    const loadSavedData = async () => {
-      const docRef = doc(db, "kintai", shop, "dailyData", date);
-      const docSnap = await getDoc(docRef);
-      if (docSnap.exists() && docSnap.data().staffList) {
-        setStaffList(docSnap.data().staffList);
-      } else {
-        setStaffList([
-          { id: '1', name: '', startTime: '17:30', endTime: '20:00', breakMinutes: 0 },
-          { id: '2', name: '', startTime: '19:00', endTime: '22:00', breakMinutes: 0 },
-          { id: '3', name: '', startTime: '13:30', endTime: '15:30', breakMinutes: 0 },
-        ]);
-      }
-    };
-    loadSavedData();
-  }, [date, shop]);
-
-  const startListening = (staffId: string, onStart: () => void, onEnd: () => void) => {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) return;
-    const recognition = new SpeechRecognition();
-    recognitionRef.current = recognition;
-    recognition.lang = 'ja-JP';
-    recognition.continuous = true;
-    recognition.interimResults = true;
-
-    const resetTimer = () => {
-      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-      silenceTimerRef.current = setTimeout(() => { recognition.stop(); }, 3500);
-    };
-
-    recognition.onstart = () => { onStart(); resetTimer(); };
-    recognition.onresult = (event: any) => {
-      resetTimer();
-      const lastIndex = event.results.length - 1;
-      const result = event.results[lastIndex];
-      if (result.isFinal) {
-        const text = result[0].transcript
-          .replace(/[０-９]/g, (s: string) => String.fromCharCode(s.charCodeAt(0) - 0xFEE0))
-          .replace(/[ァ-ン]/g, (s: string) => String.fromCharCode(s.charCodeAt(0) - 0x60));
-
-        const extractTime = (sentence: string, keywords: string[]) => {
-          for (const word of keywords) {
-            if (sentence.includes(word)) {
-              const part = sentence.split(word)[0];
-              const timeMatch = part.match(/(\d{1,2})時(?:(\d{1,2})分|(半))?$/) || part.match(/(\d{1,2}):(\d{1,2})$/);
-              if (timeMatch) {
-                const h = timeMatch[1].padStart(2, '0');
-                let m = timeMatch[2] ? timeMatch[2].padStart(2, '0') : (timeMatch[3] === "半" ? "30" : "00");
-                return `${h}:${m}`;
-              }
-            }
-          }
-          return null;
-        };
-
-        const start = extractTime(text, ["入り", "から", "スタート", "はじめ"]);
-        const end = extractTime(text, ["上がり", "まで", "おわり", "だし"]);
-        if (start || end) {
-          setStaffList(prev => prev.map(s => s.id === staffId ? { ...s, startTime: start || s.startTime, endTime: end || s.endTime } : s));
-        }
-      }
-    };
-    recognition.onend = () => { onEnd(); if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current); };
-    recognition.start();
-  };
-
-  const calculateHours = (s: any) => {
-    const toMin = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
-    let start = toMin(s.startTime), end = toMin(s.endTime);
-    if (end < start) end += 1440;
-    const diff = end - start - s.breakMinutes;
-    return diff > 0 ? Math.round((diff / 60) * 100) / 100 : 0;
-  };
-
-  const dailyTotal = staffList.reduce((sum, staff) => sum + calculateHours(staff), 0);
-
-  // 🔥 修正：独自ポップアップを使った保存処理
-  const executeSave = async () => {
-    const docRef = doc(db, "kintai", shop, "dailyData", date);
-    await setDoc(docRef, { id: date, date, shop, totalHours: dailyTotal, staffList, updatedAt: Date.now() });
-    setModal(prev => ({ ...prev, show: false }));
-    setShowToast(true);
-    setTimeout(() => setShowToast(false), 2000);
-  };
-
-  const handleSaveClick = async () => {
-    const docRef = doc(db, "kintai", shop, "dailyData", date);
-    const docSnap = await getDoc(docRef);
-
-    if (docSnap.exists()) {
-      setModal({
-        show: true,
-        title: "上書き保存しますか？",
-        message: `${date} のデータは既に存在します。現在の内容で更新してもよろしいですか？`,
-        type: 'warning',
-        onConfirm: executeSave
-      });
-    } else {
-      setModal({
-        show: true,
-        title: "データを保存しますか？",
-        message: `${date} の勤務記録を保存します。`,
-        type: 'success',
-        onConfirm: executeSave
-      });
-    }
-  };
 
   return (
     <main className="min-h-screen bg-slate-50 p-4 sm:p-8 font-sans text-slate-900 overflow-x-hidden relative">
@@ -168,7 +53,7 @@ function AttendanceContent() {
 
       <div className="max-w-4xl mx-auto space-y-6">
         {showToast && <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[150] bg-slate-900 text-white px-6 py-3 rounded-full shadow-2xl animate-in slide-in-from-top-4 duration-300">保存完了しました！</div>}
-        
+
         <header className="bg-white rounded-3xl border border-slate-200 p-6 flex justify-between items-center shadow-sm">
           <div><p className="text-[10px] font-black text-blue-500 uppercase tracking-widest mb-1 leading-none">Management</p><h1 className="text-2xl font-black flex items-center gap-2"><Store size={20} className="text-blue-500" />{shopDisplayName}</h1></div>
           <input type="date" value={date} onChange={(e) => { setDate(e.target.value); router.push(`/${shop}?date=${e.target.value}`); }} className="bg-slate-100 rounded-xl px-4 py-2 font-black outline-none border-none shadow-inner text-slate-700" />
@@ -181,7 +66,7 @@ function AttendanceContent() {
 
         <div className="grid gap-3">
           {staffList.map((staff) => (
-            <StaffCard key={staff.id} staff={staff} onUpdate={(id, f, v) => setStaffList(prev => prev.map(s => s.id === id ? { ...s, [f]: v } : s))} onDelete={() => setStaffList(prev => prev.filter(s => s.id !== staff.id))} onVoiceInput={startListening} calculateHours={calculateHours} />
+            <StaffCard key={staff.id} staff={staff} onUpdate={(id, f, v) => setStaffList(prev => prev.map(s => s.id === id ? { ...s, [f]: v } : s))} onDelete={() => setStaffList(prev => prev.filter(s => s.id !== staff.id))}  calculateHours={calculateHours} isListening={listeningStaffId === staff.id} onVoiceInput={startListening}/>
           ))}
         </div>
 
