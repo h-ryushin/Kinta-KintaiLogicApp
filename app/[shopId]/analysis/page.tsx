@@ -51,12 +51,6 @@ function AnalysisContent() {
 
                 {/* ヘッダー */}
                 <header className="flex items-center justify-between">
-                    {/* <button 
-            onClick={() => router.push(`/${shop}`)}
-            className="bg-white border border-slate-200 text-slate-600 p-3 rounded-2xl font-bold active:scale-95 transition-all flex items-center gap-2 shadow-sm text-sm"
-          >
-            <ArrowLeft size={16} /><span>戻る</span>
-          </button> */}
                     <div className="text-right">
                         <p className="text-[10px] font-black text-blue-500 uppercase tracking-widest mb-0.5 leading-none">Analytics Dashboard</p>
                         <h1 className="text-xl font-black flex items-center gap-1.5 justify-end"><Store size={18} className="text-blue-500" />{shopDisplayName} 人時売上分析</h1>

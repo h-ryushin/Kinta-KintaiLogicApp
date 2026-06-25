@@ -29,23 +29,50 @@ function AttendanceContent() {
   const [sales, setSales] = useState<number>(0);
 
   // 🟢 【新機能】朝3時を過ぎたら自動で今日の日付にリロードする監視ロジック
+  // useEffect(() => {
+  //   // 1分ごとにチェックを入れる
+  //   const interval = setInterval(() => {
+  //     const now = new Date();
+  //     const currentHours = now.getHours();
+  //     const currentMinutes = now.getMinutes();
+
+  //     // 現在の「実際の今日の日付」
+  //     const realToday = getTodayString();
+
+  //     // もしアプリが「過去の日付」を表示していて、かつ現在時刻が「朝3時以降」になった場合
+  //     // または、純粋に日を跨いで朝3時ちょうどになった場合
+  //     if (date !== realToday && currentHours >= 3) {
+  //       // 念のため、朝3時〜3時1分の間に確実に1回だけリロードが走るようにするか、日付が変わっているなら強制リフレッシュ
+  //       window.location.href = `/${shop}?date=${realToday}`;
+  //     }
+  //   }, 60000); // 60,000ms = 1分
+
+  //   return () => clearInterval(interval);
+  // }, [date, shop]);
+  // 🟢 【修正版】朝3時を過ぎて、日を跨いだ瞬間に1回だけ自動で今日の日付にリロードするロジック
   useEffect(() => {
     // 1分ごとにチェックを入れる
     const interval = setInterval(() => {
       const now = new Date();
-      const currentHours = now.getHours();
-      const currentMinutes = now.getMinutes();
-
-      // 現在の「実際の今日の日付」
-      const realToday = getTodayString();
-
-      // もしアプリが「過去の日付」を表示していて、かつ現在時刻が「朝3時以降」になった場合
-      // または、純粋に日を跨いで朝3時ちょうどになった場合
-      if (date !== realToday && currentHours >= 3) {
-        // 念のため、朝3時〜3時1分の間に確実に1回だけリロードが走るようにするか、日付が変わっているなら強制リフレッシュ
-        window.location.href = `/${shop}?date=${realToday}`;
+      
+      // 朝3時営業切り替えのロジック：もし現在時刻が「朝0時〜2時59分」なら、日付としては「前日」として扱う
+      const targetDate = new Date(now);
+      if (now.getHours() < 3) {
+        targetDate.setDate(targetDate.getDate() - 1);
       }
-    }, 60000); // 60,000ms = 1分
+      
+      // 朝3時基準で計算された「あるべき今日の日付（YYYY-MM-DD）」
+      const businessToday = targetDate.toISOString().split('T')[0];
+
+      // 【超重要】ユーザーが意図的に過去のURL（?date=...）を開いている時はリロードを絶対に阻止！
+      // 「今アプリが開いている日付」が「朝3時基準の今日」であり、かつ「実際の時間が翌日の朝3時を過ぎた」時だけ走らせる
+      const currentSearchParams = new URLSearchParams(window.location.search);
+      const isViewingToday = !currentSearchParams.get('date') || currentSearchParams.get('date') === businessToday;
+
+      if (isViewingToday && date !== businessToday && now.getHours() >= 3) {
+        window.location.href = `/${shop}?date=${businessToday}`;
+      }
+    }, 60000); // 1分ごと
 
     return () => clearInterval(interval);
   }, [date, shop]);
