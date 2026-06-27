@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, getDocs } from 'firebase/firestore';
-import { calculateStaffHours } from '@/lib/utils';
+import { calculateSalesEfficiency, calculateStaffHours } from '@/lib/utils';
 
 interface UseAnalysisDataProps {
   shop: string;
@@ -20,7 +20,7 @@ export function useAnalysisData({ shop }: UseAnalysisDataProps) {
       try {
         const historyRef = collection(db, "kintai", shop, "dailyData");
         const querySnapshot = await getDocs(historyRef);
-        
+
         const rawData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as any }));
         rawData.sort((a, b) => a.id.localeCompare(b.id));
 
@@ -31,17 +31,19 @@ export function useAnalysisData({ shop }: UseAnalysisDataProps) {
           const albaTotalHours = (day.staffList || [])
             .filter((staff: any) => staff.role === 'alba')
             .reduce((sum: number, staff: any) => sum + calculateStaffHours(staff), 0);
+          const partTotalHours = (day.staffList || [])
+            .filter((staff: any) => staff.role === 'part')
+            .reduce((sum: number, staff: any) => sum + calculateStaffHours(staff), 0);
 
           const sales = Number(day.sales || 0);
-          const totalTargetHours = albaTotalHours + 8;
-          const salesEfficiency = totalTargetHours > 0 ? Math.round(sales / totalTargetHours) : 0;
+          const salesEfficiency = calculateSalesEfficiency(sales, albaTotalHours, partTotalHours);
 
           let status: 'low' | 'good' | 'high' = 'good';
           if (salesEfficiency < 4800) status = 'low';
           if (salesEfficiency > 6200) status = 'high';
 
           const labelDate = day.id.includes('-') ? day.id.split('-').slice(1).join('/') : day.id;
-          
+
           // 日付から年月(YYYY-MM)を抽出してSetに追加
           if (day.id.includes('-')) {
             const [year, month] = day.id.split('-');

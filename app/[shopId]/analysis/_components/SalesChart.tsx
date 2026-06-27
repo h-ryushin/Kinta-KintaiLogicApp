@@ -32,12 +32,13 @@ export function SalesChart({ selectedMonth, filteredChartData }: SalesChartProps
               labelStyle={{ fontWeight: 'bold', fontSize: '12px', color: '#38bdf8' }}
               formatter={(value: any) => [`${value.toLocaleString()} 円`, '人時売上']}
             />
-            <ReferenceLine y={4800} stroke="#ef4444" strokeDasharray="4 4" label={{ value: '下限 4,800円', fill: '#ef4444', fontSize: 10, fontWeight: 'bold', position: 'insideBottomLeft' }} />
-            <ReferenceLine y={6200} stroke="#10b981" strokeDasharray="4 4" label={{ value: '上限 6,200円', fill: '#10b981', fontSize: 10, fontWeight: 'bold', position: 'insideTopLeft' }} />
+            <ReferenceLine y={5500} stroke="#ef4444" strokeDasharray="4 4" label={{ value: '下限 5,500円', fill: '#ef4444', fontSize: 10, fontWeight: 'bold', position: 'insideBottomLeft' }} />
+            <ReferenceLine y={6500} stroke="#10b981" strokeDasharray="4 4" label={{ value: '上限 6,500円', fill: '#10b981', fontSize: 10, fontWeight: 'bold', position: 'insideTopLeft' }} />
+            <ReferenceLine y={8000} stroke="#10b981" strokeDasharray="4 4" label={{ value: '上限 8,000円', fill: '#10b981', fontSize: 10, fontWeight: 'bold', position: 'insideTopLeft' }} />
             
             {/* 🛠️ 【直線化】type="monotone" から type="linear" に変更して曲げないように固定！ */}
             <Line 
-              type="linear" 
+              type="linear"
               dataKey="salesEfficiency" 
               stroke="#2563eb" 
               strokeWidth={3} 

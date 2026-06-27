@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
-import { calculateStaffHours } from '@/lib/utils';
+import { calculateSalesEfficiency, calculateStaffHours } from '@/lib/utils';
 
 interface UseAttendanceDataProps {
     shop: string;
@@ -24,7 +24,7 @@ export function useAttendanceData({ shop, date, sales, setSales }: UseAttendance
             try {
                 const docRef = doc(db, "kintai", shop, "dailyData", date);
                 const docSnap = await getDoc(docRef);
-                
+
                 if (!isMounted) return;
 
                 if (docSnap.exists()) {
@@ -79,7 +79,7 @@ export function useAttendanceData({ shop, date, sales, setSales }: UseAttendance
     const albaTotalHours = albaStaffs.reduce((sum, staff) => sum + calculateStaffHours(staff), 0);
     const partStaffs = staffList.filter(staff => staff.role === 'part');
     const partTotalHours = partStaffs.reduce((sum, staff) => sum + calculateStaffHours(staff), 0);
-    const salesEfficiency = albaTotalHours + 8 > 0 ? Math.round(sales / (albaTotalHours + 8)) : 0;
+    const salesEfficiency = calculateSalesEfficiency(sales, albaTotalHours, partTotalHours);
 
     return {
         staffList,
