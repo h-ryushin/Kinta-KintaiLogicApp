@@ -6,7 +6,7 @@ import { TrendingUp, HelpCircle } from 'lucide-react';
 import { HeaderSection } from './_components/HeaderSection';
 import { SalesDashboard } from './_components/SalesDashboard';
 import { StaffSection } from './_components/StaffSection';
-import { ActionButtons } from './_components/ActionButtons'; 
+import { ActionButtons } from './_components/ActionButtons';
 import { ConfirmModal } from '@/components/organisms/ConfirmModal';
 import { BottomNav } from '@/components/organisms/BottomNav';
 
@@ -20,47 +20,36 @@ function AttendanceContent() {
   const searchParams = useSearchParams();
   const shop = params.shopId as string;
   const dateParam = searchParams.get('date');
-  
+
   // 今日の日付（YYYY-MM-DD）を取得する関数
   const getTodayString = () => new Date().toISOString().split('T')[0];
-  
+
   const [date, setDate] = useState(dateParam || getTodayString());
   const [showToast, setShowToast] = useState(false);
   const [sales, setSales] = useState<number>(0);
 
-  // 🟢 【新機能】朝3時を過ぎたら自動で今日の日付にリロードする監視ロジック
-  // useEffect(() => {
-  //   // 1分ごとにチェックを入れる
-  //   const interval = setInterval(() => {
-  //     const now = new Date();
-  //     const currentHours = now.getHours();
-  //     const currentMinutes = now.getMinutes();
+  // URLのクエリが変わったとき、ローカルstateも必ず同期する
+  // Historyから日付を開くときなど、同じページ内で?dateだけが変わる場合に必要
+  useEffect(() => {
+    const nextDate = dateParam || getTodayString();
+    if (date !== nextDate) {
+      setDate(nextDate);
+    }
+  }, [dateParam, date]);
 
-  //     // 現在の「実際の今日の日付」
-  //     const realToday = getTodayString();
 
-  //     // もしアプリが「過去の日付」を表示していて、かつ現在時刻が「朝3時以降」になった場合
-  //     // または、純粋に日を跨いで朝3時ちょうどになった場合
-  //     if (date !== realToday && currentHours >= 3) {
-  //       // 念のため、朝3時〜3時1分の間に確実に1回だけリロードが走るようにするか、日付が変わっているなら強制リフレッシュ
-  //       window.location.href = `/${shop}?date=${realToday}`;
-  //     }
-  //   }, 60000); // 60,000ms = 1分
-
-  //   return () => clearInterval(interval);
-  // }, [date, shop]);
-  // 🟢 【修正版】朝3時を過ぎて、日を跨いだ瞬間に1回だけ自動で今日の日付にリロードするロジック
+  // 朝3時を過ぎて、日を跨いだ瞬間に1回だけ自動で今日の日付にリロードするロジック
   useEffect(() => {
     // 1分ごとにチェックを入れる
     const interval = setInterval(() => {
       const now = new Date();
-      
+
       // 朝3時営業切り替えのロジック：もし現在時刻が「朝0時〜2時59分」なら、日付としては「前日」として扱う
       const targetDate = new Date(now);
       if (now.getHours() < 3) {
         targetDate.setDate(targetDate.getDate() - 1);
       }
-      
+
       // 朝3時基準で計算された「あるべき今日の日付（YYYY-MM-DD）」
       const businessToday = targetDate.toISOString().split('T')[0];
 
@@ -86,8 +75,9 @@ function AttendanceContent() {
     albaTotalHours,
     partStaffs,
     partTotalHours,
-    salesEfficiency
-  } = useAttendanceData({ shop, date, sales , setSales });
+    salesEfficiency,
+    loading
+  } = useAttendanceData({ shop, date, sales, setSales });
 
   const { startListening, listeningStaffId } = useSpeechRecognition({ setStaffList });
   const shopDisplayName = shop === 'kosai' ? '湖西店' : '西駅店';
@@ -101,9 +91,21 @@ function AttendanceContent() {
     setShowToast
   });
 
+  if (loading) {
+    return (
+      <main className="min-h-screen bg-slate-50 p-4 sm:p-8 font-sans text-slate-900 overflow-x-hidden relative">
+        <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center">
+          <div className="rounded-[2rem] bg-white border border-slate-200 p-8 shadow-xl text-center">
+            <p className="text-slate-700 text-lg font-bold">データを読み込み中です...</p>
+            <p className="text-slate-400 text-sm mt-2">少しお待ちください。</p>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-screen bg-slate-50 p-4 sm:p-8 font-sans text-slate-900 overflow-x-hidden relative">
-      
       <ConfirmModal
         show={modal.show}
         title={modal.title || "上書き保存しますか？"}
@@ -175,12 +177,12 @@ function AttendanceContent() {
         </div>
 
         {/* 🟢 4. 下部ボタンパーツ */}
-        <ActionButtons shop={shop} setStaffList={setStaffList} onSave={handleSaveClick} />
+        <ActionButtons shop={shop} setStaffList={setStaffList} onSave={handleSaveClick} disableSave={loading} />
 
         <div className="h-10 w-full flex-shrink-0" aria-hidden="true" />
         <BottomNav />
       </div>
-    </main>
+    </main >
   );
 }
 

@@ -8,12 +8,14 @@ interface ActionButtonsProps {
   shop: string;
   setStaffList: React.Dispatch<React.SetStateAction<any[]>>;
   onSave: () => void;
+  disableSave?: boolean;
 }
 
 export const ActionButtons: React.FC<ActionButtonsProps> = ({
   shop,
   setStaffList,
-  onSave
+  onSave,
+  disableSave = false
 }) => {
   return (
     <div className="grid grid-cols-1 md:grid-cols-5 gap-3 mt-8">
@@ -36,7 +38,8 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
       {/* 🔵 保存するボタン */}
       <button 
         onClick={onSave} 
-        className="md:col-span-2 bg-blue-600 text-white py-4 rounded-[2rem] font-black shadow-xl shadow-blue-200 active:scale-95 hover:bg-blue-700 transition-all flex items-center justify-center gap-3 text-lg"
+        disabled={disableSave}
+        className={`md:col-span-2 py-4 rounded-[2rem] font-black shadow-xl transition-all flex items-center justify-center gap-3 text-lg ${disableSave ? 'bg-slate-300 text-slate-500 cursor-not-allowed shadow-none' : 'bg-blue-600 text-white hover:bg-blue-700 shadow-blue-200'}`}
       >
         <Save size={24} /><span>保存する</span>
       </button>
