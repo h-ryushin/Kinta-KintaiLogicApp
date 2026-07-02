@@ -118,6 +118,7 @@ export const StaffCard: React.FC<StaffCardProps> = ({
             <div className={`flex items-center bg-slate-50 border rounded-2xl p-1 gap-1 focus-within:bg-white transition-all ${startError || endError ? 'border-rose-400 bg-rose-50/30 focus-within:border-rose-500' : 'border-slate-100 focus-within:border-blue-400'}`}>
               <input
                 type="text"
+                inputMode="numeric"
                 value={localStart}
                 onChange={(e) => setLocalStart(e.target.value)}
                 onFocus={() => setLocalStart('')}
