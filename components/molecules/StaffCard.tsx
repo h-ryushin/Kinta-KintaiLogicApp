@@ -137,7 +137,8 @@ export const StaffCard: React.FC<StaffCardProps> = ({
               />
               <span className="text-slate-300 font-bold text-xs select-none">~</span>
               <input
-                type="numeric"
+                type="text"
+                inputMode="numeric"
                 value={localEnd}
                 onChange={(e) => setLocalEnd(e.target.value)}
                 onFocus={() => setLocalEnd('')}
