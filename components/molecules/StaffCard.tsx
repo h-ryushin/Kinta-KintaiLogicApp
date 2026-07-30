@@ -78,10 +78,10 @@ export const StaffCard: React.FC<StaffCardProps> = ({
 
   return (
     <div className={`bg-white rounded-[2rem] p-5 border shadow-sm transition-all flex flex-col gap-2 relative ${isListening ? 'border-red-400 ring-2 ring-red-100 bg-red-50/5' : (startError || endError) ? 'border-rose-400 bg-rose-50/5' : 'border-slate-200 hover:border-slate-300'}`}>
-      
+
       {/* 🟢 横並びコンテンツのコンテナ */}
       <div className="flex flex-col md:flex-row md:items-center gap-4 w-full">
-        
+
         {/* 👤 ① 通し番号＆名前入力枠 */}
         <div className="flex-1 min-w-[200px] space-y-1">
           <div className="flex items-center gap-2 pl-1">

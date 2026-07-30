@@ -36,7 +36,20 @@ export default function HistoryPage() {
   } = useHistoryModal({ shop, fetchHistory, setLoading });
 
   if (loading && monthOptions.length === 0) {
-    return <div className="flex justify-center items-center min-h-screen text-slate-500 font-bold">データを読み込み中...</div>;
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-10 sm:px-6 lg:px-8">
+        <div className="mx-auto flex max-w-md flex-col items-center justify-center rounded-[2rem] border border-slate-200 bg-white p-8 text-center shadow-sm">
+          <div className="mb-4 h-12 w-12 animate-spin rounded-full border-4 border-blue-100 border-t-blue-600" />
+          <h2 className="text-lg font-black text-slate-900">データを読み込み中です</h2>
+          <button
+            className="mt-6 rounded-full bg-blue-600 px-4 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700"
+            onClick={() => router.refresh()}
+          >
+            再読み込み
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -51,8 +64,9 @@ export default function HistoryPage() {
         onConfirm={modal.onConfirm}
       />
 
+
       <div className="max-w-2xl mx-auto space-y-6">
-        
+
         {/* 🗺️ タイトルと月選択のヘッダーエリア（店舗バッジ付きデザイン） */}
         <div className="bg-white p-5 sm:p-6 rounded-[2.5rem] border border-slate-100 shadow-sm flex items-center justify-between gap-4">
           <div className="space-y-1.5">
@@ -65,7 +79,7 @@ export default function HistoryPage() {
             </div>
             <p className="hidden sm:block text-xs text-slate-400 font-bold">過去の勤務実績データを月別で確認・編集できます。</p>
           </div>
-          
+
           {/* 📅 月切り替えのプルダウンメニュー */}
           <div className="relative min-w-[140px] sm:min-w-[160px] flex-shrink-0">
             <select
@@ -121,7 +135,7 @@ export default function HistoryPage() {
         {/* 🗺️ フッターとコンテンツが被らないためのクッション ＆ ボトムナビ */}
         <div className="h-10 w-full flex-shrink-0" aria-hidden="true" />
         <BottomNav />
-        
+
       </div>
     </main>
   );

@@ -27,23 +27,23 @@ export function SalesChart({ selectedMonth, filteredChartData }: SalesChartProps
             <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
             <XAxis dataKey="displayDate" stroke="#94a3b8" fontSize={11} fontWeight="bold" tickLine={false} axisLine={false} />
             <YAxis stroke="#94a3b8" fontSize={11} fontWeight="bold" tickLine={false} axisLine={false} domain={[2000, 'auto']} />
-            <Tooltip 
+            <Tooltip
               contentStyle={{ backgroundColor: '#0f172a', borderRadius: '1rem', border: 'none', color: '#fff' }}
               labelStyle={{ fontWeight: 'bold', fontSize: '12px', color: '#38bdf8' }}
               formatter={(value: any) => [`${value.toLocaleString()} 円`, '人時売上']}
             />
-            <ReferenceLine y={5500} stroke="#ef4444" strokeDasharray="4 4" label={{ value: '下限 5,500円', fill: '#ef4444', fontSize: 10, fontWeight: 'bold', position: 'insideBottomLeft' }} />
+            <ReferenceLine y={5500} stroke="#ef4444" strokeDasharray="4 4" label={{ value: '下限 5,500円', fill: '#ef4444', fontSize: 10, fontWeight: 'bold', position: 'insideTopLeft'}} />
             <ReferenceLine y={6500} stroke="#10b981" strokeDasharray="4 4" label={{ value: '上限 6,500円', fill: '#10b981', fontSize: 10, fontWeight: 'bold', position: 'insideTopLeft' }} />
             <ReferenceLine y={8000} stroke="#10b981" strokeDasharray="4 4" label={{ value: '上限 8,000円', fill: '#10b981', fontSize: 10, fontWeight: 'bold', position: 'insideTopLeft' }} />
-            
+
             {/* 🛠️ 【直線化】type="monotone" から type="linear" に変更して曲げないように固定！ */}
-            <Line 
+            <Line
               type="linear"
-              dataKey="salesEfficiency" 
-              stroke="#2563eb" 
-              strokeWidth={3} 
-              dot={{ r: 5, strokeWidth: 2, fill: '#fff' }} 
-              activeDot={{ r: 7, style: { fill: '#2563eb' } }} 
+              dataKey="salesEfficiency"
+              stroke="#2563eb"
+              strokeWidth={3}
+              dot={{ r: 5, strokeWidth: 2, fill: '#fff' }}
+              activeDot={{ r: 7, style: { fill: '#2563eb' } }}
             />
           </LineChart>
         </ResponsiveContainer>

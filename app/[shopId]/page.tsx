@@ -95,9 +95,15 @@ function AttendanceContent() {
     return (
       <main className="min-h-screen bg-slate-50 p-4 sm:p-8 font-sans text-slate-900 overflow-x-hidden relative">
         <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center">
-          <div className="rounded-[2rem] bg-white border border-slate-200 p-8 shadow-xl text-center">
-            <p className="text-slate-700 text-lg font-bold">データを読み込み中です...</p>
-            <p className="text-slate-400 text-sm mt-2">少しお待ちください。</p>
+          <div className="mx-auto flex max-w-md flex-col items-center justify-center rounded-[2rem] border border-slate-200 bg-white p-8 text-center shadow-sm">
+            <div className="mb-4 h-12 w-12 animate-spin rounded-full border-4 border-blue-100 border-t-blue-600" />
+            <h2 className="text-lg font-black text-slate-900">データを読み込み中です</h2>
+            <button
+              className="mt-6 rounded-full bg-blue-600 px-4 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700"
+              onClick={() => router.refresh()}
+            >
+              再読み込み
+            </button>
           </div>
         </div>
       </main>
