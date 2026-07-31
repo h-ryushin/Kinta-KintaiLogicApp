@@ -16,6 +16,13 @@ interface MonthSelectorProps {
   monthlyAverageEfficiency: number;
 }
 
+// 人時売上高（円/H）の評価しきい値
+const SALES_EFFICIENCY_THRESHOLDS = {
+  LOW: 5500, // これ未満は人員過多の可能性あり
+  BASE: 6500, // これ未満はベースゾーン
+  GOOD: 8000, // これ未満は良好ゾーン、これ以上は問題発生の可能性あり
+};
+
 export function MonthSelector({
   selectedMonth,
   setSelectedMonth,
@@ -23,12 +30,12 @@ export function MonthSelector({
   filteredChartData,
   monthlyAverageEfficiency,
 }: MonthSelectorProps) {
-  
+
   const getAverageStatus = (avg: number) => {
     if (avg === 0) return { bg: 'bg-slate-100 text-slate-500', text: 'データなし' };
-    if (avg < 5500) return { bg: 'bg-amber-50 border-amber-200 text-amber-600', text: '低い（人員過多の可能性あり）' };
-    if (avg < 6500) return { bg: 'bg-blue-50 border-blue-200 text-blue-600', text: 'ベース' };
-    if (avg < 8000) return { bg: 'bg-emerald-50 border-emerald-200 text-emerald-600', text: '月間平均：良好ゾーン' };
+    if (avg < SALES_EFFICIENCY_THRESHOLDS.LOW) return { bg: 'bg-amber-50 border-amber-200 text-amber-600', text: '低い（人員過多の可能性あり）' };
+    if (avg < SALES_EFFICIENCY_THRESHOLDS.BASE) return { bg: 'bg-blue-50 border-blue-200 text-blue-600', text: 'ベース' };
+    if (avg < SALES_EFFICIENCY_THRESHOLDS.GOOD) return { bg: 'bg-emerald-50 border-emerald-200 text-emerald-600', text: '月間平均：良好ゾーン' };
     return { bg: 'bg-rose-50 border-rose-200 text-rose-600', text: '厳しい（問題発生の可能性あり）' };
   };
 
