@@ -26,9 +26,10 @@ export function MonthSelector({
   
   const getAverageStatus = (avg: number) => {
     if (avg === 0) return { bg: 'bg-slate-100 text-slate-500', text: 'データなし' };
-    if (avg < 4800) return { bg: 'bg-rose-50 border-rose-200 text-rose-600', text: '人件費過多（要調整）' };
-    if (avg > 6200) return { bg: 'bg-amber-50 border-amber-200 text-amber-600', text: '人員不足（要補充）' };
-    return { bg: 'bg-emerald-50 border-emerald-200 text-emerald-600', text: '月間平均：適正ゾーン内' };
+    if (avg < 5500) return { bg: 'bg-amber-50 border-amber-200 text-amber-600', text: '低い（人員過多の可能性あり）' };
+    if (avg < 6500) return { bg: 'bg-blue-50 border-blue-200 text-blue-600', text: 'ベース' };
+    if (avg < 8000) return { bg: 'bg-emerald-50 border-emerald-200 text-emerald-600', text: '月間平均：良好ゾーン' };
+    return { bg: 'bg-rose-50 border-rose-200 text-rose-600', text: '厳しい（問題発生の可能性あり）' };
   };
 
   const avgStatus = getAverageStatus(monthlyAverageEfficiency);
