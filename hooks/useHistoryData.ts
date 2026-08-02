@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, where } from 'firebase/firestore';
+import { fetchWithRetry } from '@/lib/firestoreRetry';
 
 interface UseHistoryDataProps {
     shop: string;
@@ -13,14 +14,18 @@ export function useHistoryData({ shop }: UseHistoryDataProps) {
     const [monthOptions, setMonthOptions] = useState<string[]>([]); // 💡 Firebaseに本当に存在する月のリスト
     const [selectedMonth, setSelectedMonth] = useState<string>("");
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(false);
+    // 🔁 「再読み込み」ボタン用のトリガー（月一覧の再取得をやり直す）
+    const [retryToken, setRetryToken] = useState(0);
 
     // 🌟 ステップ1: Firebaseに「本当に存在する月」のリストだけを、ドキュメントのID（名前）だけで抽出する
     useEffect(() => {
         const fetchAvailableMonths = async () => {
             if (!shop) return;
+            setError(false);
             try {
                 const historyRef = collection(db, "kintai", shop, "dailyData");
-                const querySnapshot = await getDocs(historyRef);
+                const querySnapshot = await fetchWithRetry(() => getDocs(historyRef));
                 
                 const monthsSet = new Set<string>();
                 querySnapshot.docs.forEach(doc => {
@@ -48,19 +53,21 @@ export function useHistoryData({ shop }: UseHistoryDataProps) {
                 } else {
                     setLoading(false);
                 }
-            } catch (error) {
-                console.error("存在する月の取得に失敗しました:", error);
+            } catch (err) {
+                console.error("存在する月の取得に失敗しました:", err);
+                setError(true);
                 setLoading(false);
             }
         };
 
         fetchAvailableMonths();
-    }, [shop]);
+    }, [shop, retryToken]);
 
     // 🌟 ステップ2: 選択された月が変わった瞬間、その「1ヶ月分のデータだけ」を狙い撃ちで回収する
     const fetchHistory = useCallback(async () => {
         if (!shop || !selectedMonth) return;
         setLoading(true);
+        setError(false);
         try {
             // "2026年06月" ➔ "2026-06" の検索用キーを作る
             const match = selectedMonth.match(/(\d+)年(\d+)月/);
@@ -76,32 +83,39 @@ export function useHistoryData({ shop }: UseHistoryDataProps) {
                 where("__name__", "<=", searchKey + "\uf8ff")
             );
             
-            const querySnapshot = await getDocs(q);
+            const querySnapshot = await fetchWithRetry(() => getDocs(q));
             const rawData = querySnapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() as any) }));
-            
+
             // 日付の新しい順（降順）に並び替え
             rawData.sort((a, b) => b.id.localeCompare(a.id));
-            
+
             // 選択された月だけの総時間を集計
             let total = 0;
             rawData.forEach(item => {
                 total += Number(item.totalHours || 0);
             });
-            
+
             setCurrentMonthData({
                 items: rawData,
                 monthTotal: total
             });
 
-        } catch (error) { 
-            console.error("月別データの取得に失敗しました:", error); 
-        } finally { 
-            setLoading(false); 
+        } catch (err) {
+            console.error("月別データの取得に失敗しました:", err);
+            setError(true);
+        } finally {
+            setLoading(false);
         }
     }, [shop, selectedMonth]);
 
-    useEffect(() => { 
-        fetchHistory(); 
+    useEffect(() => {
+        fetchHistory();
+    }, [fetchHistory]);
+
+    // 🔁 「再読み込み」ボタン用: 月一覧・月別データの両方をやり直す
+    const refetch = useCallback(() => {
+        setRetryToken(t => t + 1);
+        fetchHistory();
     }, [fetchHistory]);
 
     return {
@@ -110,7 +124,9 @@ export function useHistoryData({ shop }: UseHistoryDataProps) {
         setSelectedMonth, // 🟢 月を切り替える関数
         currentMonthData, // 🟢 選ばれた月の実データ
         loading,
+        error,
         setLoading,
-        fetchHistory
+        fetchHistory,
+        refetch
     };
 }

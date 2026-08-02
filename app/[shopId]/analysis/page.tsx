@@ -14,7 +14,7 @@ function AnalysisContent() {
     const router = useRouter();
     const params = useParams();
     const shop = params.shopId as string;
-    const { allData, availableMonths, latestDayData, loading } = useAnalysisData({ shop });
+    const { allData, availableMonths, latestDayData, loading, error, refetch } = useAnalysisData({ shop });
 
     const [selectedMonth, setSelectedMonth] = useState<string>('');
     const shopDisplayName = shop === 'kosai' ? '湖西店' : '西駅店';
@@ -34,12 +34,26 @@ function AnalysisContent() {
         ? Math.round(filteredChartData.reduce((sum, day) => sum + day.salesEfficiency, 0) / filteredChartData.length)
         : 0;
 
-    if (loading) {
+    if (loading || error) {
         return (
             <div className="min-h-screen bg-slate-50 flex items-center justify-center font-sans">
                 <div className="text-center space-y-2">
-                    <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
-                    <p className="text-sm font-bold text-slate-400">分析データを読み込み中...</p>
+                    {error ? (
+                        <div className="mx-auto w-10 h-10 rounded-full bg-red-50 flex items-center justify-center text-red-500 text-lg">!</div>
+                    ) : (
+                        <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                    )}
+                    <p className="text-sm font-bold text-slate-400">
+                        {error ? '分析データを取得できませんでした' : '分析データを読み込み中...'}
+                    </p>
+                    {error && (
+                        <button
+                            className="mt-2 rounded-full bg-blue-600 px-4 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700"
+                            onClick={refetch}
+                        >
+                            再読み込み
+                        </button>
+                    )}
                 </div>
             </div>
         );

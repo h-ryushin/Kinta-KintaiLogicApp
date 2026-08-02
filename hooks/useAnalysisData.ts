@@ -1,8 +1,9 @@
 // hooks/useAnalysisData.ts
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, getDocs } from 'firebase/firestore';
 import { calculateSalesEfficiency, calculateStaffHours } from '@/lib/utils';
+import { fetchWithRetry } from '@/lib/firestoreRetry';
 
 interface UseAnalysisDataProps {
   shop: string;
@@ -12,14 +13,19 @@ export function useAnalysisData({ shop }: UseAnalysisDataProps) {
   const [allData, setAllData] = useState<any[]>([]); // 🟢 全データを保持
   const [availableMonths, setAvailableMonths] = useState<string[]>([]); // 🟢 存在する月のリスト
   const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<boolean>(false);
+  // 🔁 「再読み込み」ボタン用のトリガー
+  const [retryToken, setRetryToken] = useState(0);
+  const refetch = useCallback(() => setRetryToken(t => t + 1), []);
 
   useEffect(() => {
     const fetchAnalytics = async () => {
       if (!shop) return;
       setLoading(true);
+      setError(false);
       try {
         const historyRef = collection(db, "kintai", shop, "dailyData");
-        const querySnapshot = await getDocs(historyRef);
+        const querySnapshot = await fetchWithRetry(() => getDocs(historyRef));
 
         const rawData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as any }));
         rawData.sort((a, b) => a.id.localeCompare(b.id));
@@ -64,15 +70,16 @@ export function useAnalysisData({ shop }: UseAnalysisDataProps) {
         setAllData(formattedData);
         // 月のリストを降順（新しい月が上）にして格納
         setAvailableMonths(Array.from(monthsSet).sort((a, b) => b.localeCompare(a)));
-      } catch (error) {
-        console.error("分析データの取得に失敗しました:", error);
+      } catch (err) {
+        console.error("分析データの取得に失敗しました:", err);
+        setError(true);
       } finally {
         setLoading(false);
       }
     };
 
     fetchAnalytics();
-  }, [shop]);
+  }, [shop, retryToken]);
 
   const latestDayData = allData.length > 0 ? allData[allData.length - 1] : null;
 
@@ -80,6 +87,8 @@ export function useAnalysisData({ shop }: UseAnalysisDataProps) {
     allData, // 🟢 全データを出荷
     availableMonths, // 🟢 存在する月の選択肢を出荷
     latestDayData,
-    loading
+    loading,
+    error,
+    refetch
   };
 }

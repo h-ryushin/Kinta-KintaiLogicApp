@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
+import { initializeFirestore, persistentLocalCache, persistentSingleTabManager } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -13,6 +13,10 @@ const firebaseConfig = {
 
 
 const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app);
+
+// 直近取得したデータをブラウザにキャッシュし、再訪時や電波が弱い時の体感速度を改善する
+export const db = initializeFirestore(app, {
+  localCache: persistentLocalCache({ tabManager: persistentSingleTabManager({}) }),
+});
 
 

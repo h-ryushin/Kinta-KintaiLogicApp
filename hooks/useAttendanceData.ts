@@ -1,8 +1,9 @@
 // hooks/useAttendanceData.ts
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { db } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { calculateSalesEfficiency, calculateStaffHours } from '@/lib/utils';
+import { fetchWithRetry } from '@/lib/firestoreRetry';
 
 interface UseAttendanceDataProps {
     shop: string;
@@ -15,15 +16,20 @@ export function useAttendanceData({ shop, date, sales, setSales }: UseAttendance
     const [staffList, setStaffList] = useState<any[]>([]);
     // 🟢 Firebaseの通信状態を管理するフラグを新設
     const [loading, setLoading] = useState<boolean>(true);
+    const [error, setError] = useState<boolean>(false);
+    // 🔁 「再読み込み」ボタン用のトリガー。値を変えるとuseEffectが再実行される
+    const [retryToken, setRetryToken] = useState(0);
+    const refetch = useCallback(() => setRetryToken(t => t + 1), []);
 
     useEffect(() => {
         setLoading(true);
+        setError(false);
         let isMounted = true; // 連打されたときのレースコンディションバグ防止弁
 
         const loadSavedData = async () => {
             try {
                 const docRef = doc(db, "kintai", shop, "dailyData", date);
-                const docSnap = await getDoc(docRef);
+                const docSnap = await fetchWithRetry(() => getDoc(docRef));
 
                 if (!isMounted) return;
 
@@ -57,8 +63,11 @@ export function useAttendanceData({ shop, date, sales, setSales }: UseAttendance
                         { id: '3', name: '', startTime: '13:30', endTime: '15:30', breakMinutes: 0, role: 'part' },
                     ]);
                 }
-            } catch (error) {
-                console.error("Firebaseからのデータ取得に失敗したわ:", error);
+            } catch (err) {
+                console.error("Firebaseからのデータ取得に失敗したわ:", err);
+                if (isMounted) {
+                    setError(true);
+                }
             } finally {
                 // 🟢 通信が終わったら、成功でも失敗でもローディングを解除！
                 if (isMounted) {
@@ -72,7 +81,7 @@ export function useAttendanceData({ shop, date, sales, setSales }: UseAttendance
         return () => {
             isMounted = false; // クリーンアップ関数で二重実行を防ぐ
         };
-    }, [date, shop, setSales]);
+    }, [date, shop, setSales, retryToken]);
 
     const dailyTotal = staffList.reduce((sum, staff) => sum + calculateStaffHours(staff), 0);
     const albaStaffs = staffList.filter(staff => staff.role === 'alba');
@@ -91,6 +100,8 @@ export function useAttendanceData({ shop, date, sales, setSales }: UseAttendance
         partStaffs,
         partTotalHours,
         salesEfficiency,
-        loading // 🟢 親コンポーネントに状態を伝えるために追加
+        loading, // 🟢 親コンポーネントに状態を伝えるために追加
+        error,
+        refetch
     };
 }

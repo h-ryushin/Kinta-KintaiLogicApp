@@ -76,7 +76,9 @@ function AttendanceContent() {
     partStaffs,
     partTotalHours,
     salesEfficiency,
-    loading
+    loading,
+    error,
+    refetch
   } = useAttendanceData({ shop, date, sales, setSales });
 
   const { startListening, listeningStaffId } = useSpeechRecognition({ setStaffList });
@@ -96,11 +98,17 @@ function AttendanceContent() {
       <main className="min-h-screen bg-slate-50 p-4 sm:p-8 font-sans text-slate-900 overflow-x-hidden relative">
         <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center">
           <div className="mx-auto flex max-w-md flex-col items-center justify-center rounded-[2rem] border border-slate-200 bg-white p-8 text-center shadow-sm">
-            <div className="mb-4 h-12 w-12 animate-spin rounded-full border-4 border-blue-100 border-t-blue-600" />
-            <h2 className="text-lg font-black text-slate-900">データを読み込み中です</h2>
+            {error ? (
+              <div className="mb-4 h-12 w-12 rounded-full bg-red-50 flex items-center justify-center text-red-500 text-xl">!</div>
+            ) : (
+              <div className="mb-4 h-12 w-12 animate-spin rounded-full border-4 border-blue-100 border-t-blue-600" />
+            )}
+            <h2 className="text-lg font-black text-slate-900">
+              {error ? 'データを取得できませんでした' : 'データを読み込み中です'}
+            </h2>
             <button
               className="mt-6 rounded-full bg-blue-600 px-4 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700"
-              onClick={() => router.refresh()}
+              onClick={refetch}
             >
               再読み込み
             </button>
