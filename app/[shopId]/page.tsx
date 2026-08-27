@@ -21,8 +21,17 @@ function AttendanceContent() {
   const shop = params.shopId as string;
   const dateParam = searchParams.get('date');
 
+  // ローカル（日本時間）基準でDateをYYYY-MM-DD文字列に変換する
+  // ※ toISOString()はUTC基準になり、朝3時〜8時台に日付がズレるため使用しない
+  const formatLocalDate = (d: Date) => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   // 今日の日付（YYYY-MM-DD）を取得する関数
-  const getTodayString = () => new Date().toISOString().split('T')[0];
+  const getTodayString = () => formatLocalDate(new Date());
 
   const [date, setDate] = useState(dateParam || getTodayString());
   const [showToast, setShowToast] = useState(false);
@@ -51,7 +60,7 @@ function AttendanceContent() {
       }
 
       // 朝3時基準で計算された「あるべき今日の日付（YYYY-MM-DD）」
-      const businessToday = targetDate.toISOString().split('T')[0];
+      const businessToday = formatLocalDate(targetDate);
 
       // 【超重要】ユーザーが意図的に過去のURL（?date=...）を開いている時はリロードを絶対に阻止！
       // 「今アプリが開いている日付」が「朝3時基準の今日」であり、かつ「実際の時間が翌日の朝3時を過ぎた」時だけ走らせる

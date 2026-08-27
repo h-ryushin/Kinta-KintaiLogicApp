@@ -18,7 +18,7 @@ export function SalesChart({ selectedMonth, filteredChartData }: SalesChartProps
         <h2 className="text-base font-black text-slate-800 flex items-center gap-2">
           <TrendingUp size={20} className="text-blue-500" />人時売上高の推移 ({currentMonthDisplay}月分)
         </h2>
-        <p className="text-[11px] text-slate-400 font-bold">破線の間（4,800円〜6,200円）が適正ゾーンです</p>
+        <p className="text-[11px] text-slate-400 font-bold">5,500円未満は生産性低下、5,500〜6,500円がベース、6,500〜8,000円が良好、8,000円超は要注意ゾーンです</p>
       </div>
 
       <div className="w-full h-72 sm:h-80 pr-2">
@@ -32,9 +32,9 @@ export function SalesChart({ selectedMonth, filteredChartData }: SalesChartProps
               labelStyle={{ fontWeight: 'bold', fontSize: '12px', color: '#38bdf8' }}
               formatter={(value: any) => [`${value.toLocaleString()} 円`, '人時売上']}
             />
-            <ReferenceLine y={5500} stroke="#ef4444" strokeDasharray="4 4" label={{ value: '下限 5,500円', fill: '#ef4444', fontSize: 10, fontWeight: 'bold', position: 'insideTopLeft'}} />
-            <ReferenceLine y={6500} stroke="#10b981" strokeDasharray="4 4" label={{ value: '上限 6,500円', fill: '#10b981', fontSize: 10, fontWeight: 'bold', position: 'insideTopLeft' }} />
-            <ReferenceLine y={8000} stroke="#10b981" strokeDasharray="4 4" label={{ value: '上限 8,000円', fill: '#10b981', fontSize: 10, fontWeight: 'bold', position: 'insideTopLeft' }} />
+            <ReferenceLine y={5500} stroke="#ef4444" strokeDasharray="4 4" label={{ value: 'ベース下限 5,500円', fill: '#ef4444', fontSize: 10, fontWeight: 'bold', position: 'insideTopLeft'}} />
+            <ReferenceLine y={6500} stroke="#2563eb" strokeDasharray="4 4" label={{ value: '良好 6,500円', fill: '#2563eb', fontSize: 10, fontWeight: 'bold', position: 'insideTopLeft' }} />
+            <ReferenceLine y={8000} stroke="#f59e0b" strokeDasharray="4 4" label={{ value: '要注意 8,000円', fill: '#f59e0b', fontSize: 10, fontWeight: 'bold', position: 'insideTopLeft' }} />
 
             {/* 🛠️ 【直線化】type="monotone" から type="linear" に変更して曲げないように固定！ */}
             <Line
