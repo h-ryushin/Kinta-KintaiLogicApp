@@ -44,10 +44,6 @@ export function useAnalysisData({ shop }: UseAnalysisDataProps) {
           const sales = Number(day.sales || 0);
           const salesEfficiency = calculateSalesEfficiency(sales, albaTotalHours, partTotalHours);
 
-          let status: 'low' | 'good' | 'high' = 'good';
-          if (salesEfficiency < 4800) status = 'low';
-          if (salesEfficiency > 6200) status = 'high';
-
           const labelDate = day.id.includes('-') ? day.id.split('-').slice(1).join('/') : day.id;
 
           // 日付から年月(YYYY-MM)を抽出してSetに追加
@@ -62,8 +58,7 @@ export function useAnalysisData({ shop }: UseAnalysisDataProps) {
             displayDate: labelDate,
             sales: sales,
             albaHours: albaTotalHours,
-            salesEfficiency: salesEfficiency,
-            status: status
+            salesEfficiency: salesEfficiency
           };
         });
 
