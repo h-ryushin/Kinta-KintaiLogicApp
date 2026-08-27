@@ -37,7 +37,7 @@ export default function HistoryPage() {
     handleDelete
   } = useHistoryModal({ shop, fetchHistory, setLoading });
 
-  if (loading && monthOptions.length === 0) {
+  if ((loading || error) && monthOptions.length === 0) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-10 sm:px-6 lg:px-8">
         <div className="mx-auto flex max-w-md flex-col items-center justify-center rounded-[2rem] border border-slate-200 bg-white p-8 text-center shadow-sm">

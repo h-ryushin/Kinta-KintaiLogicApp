@@ -45,10 +45,14 @@ export function useHistoryData({ shop }: UseHistoryDataProps) {
                     const defaultMonthKey = `${now.getFullYear()}年${String(now.getMonth() + 1).padStart(2, '0')}月`;
 
                     // 今月のデータが存在すれば今月、なければ存在する一番最新の月をデフォルトにする
-                    if (sortedMonths.includes(defaultMonthKey)) {
-                        setSelectedMonth(defaultMonthKey);
+                    const nextMonth = sortedMonths.includes(defaultMonthKey) ? defaultMonthKey : sortedMonths[0];
+
+                    if (nextMonth === selectedMonth) {
+                        // 選択中の月に変化がない場合、下のfetchHistoryのuseEffectは発火しないので、ここで明示的に取得し直す
+                        // （selectedMonthを変える経路と並行実行してしまうと、loading/errorの状態が競合するため直列にする）
+                        await fetchHistory();
                     } else {
-                        setSelectedMonth(sortedMonths[0]);
+                        setSelectedMonth(nextMonth);
                     }
                 } else {
                     setLoading(false);
@@ -61,6 +65,9 @@ export function useHistoryData({ shop }: UseHistoryDataProps) {
         };
 
         fetchAvailableMonths();
+        // fetchHistory/selectedMonthは意図的に依存配列から除外：
+        // 月一覧の再取得はshop/retryTokenの変化だけで走らせたい（selectedMonthの変化はfetchHistory側のuseEffectで処理する）
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [shop, retryToken]);
 
     // 🌟 ステップ2: 選択された月が変わった瞬間、その「1ヶ月分のデータだけ」を狙い撃ちで回収する
@@ -112,11 +119,11 @@ export function useHistoryData({ shop }: UseHistoryDataProps) {
         fetchHistory();
     }, [fetchHistory]);
 
-    // 🔁 「再読み込み」ボタン用: 月一覧・月別データの両方をやり直す
+    // 🔁 「再読み込み」ボタン用: 月一覧の再取得をトリガーする
+    // （月別データの再取得は上のuseEffect内で直列に行われる。ここで直接fetchHistoryも呼ぶと同時に2つの取得が走り、loading/errorの状態が競合してしまう）
     const refetch = useCallback(() => {
         setRetryToken(t => t + 1);
-        fetchHistory();
-    }, [fetchHistory]);
+    }, []);
 
     return {
         monthOptions,     // 🟢 データが存在する月だけの配列（空の月は出ない！）
