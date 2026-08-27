@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-// import { BottomNav } from "../components/organisms/BottomNav";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -20,11 +19,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="ja">
       <body className={`${inter.className} bg-slate-50`}>
-        {/* 🔥 pb-40 を追加して、全てのページでフッター被りを物理的に防ぐ！ */}
-        <div className="min-h-screen pb-40">
-          {children}
-        </div>
-        {/* <BottomNav /> */}
+        {children}
       </body>
     </html>
   );
