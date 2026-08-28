@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, getDocs } from 'firebase/firestore';
-import { calculateSalesEfficiency, calculateStaffHours } from '@/lib/utils';
+import { calculateSalesEfficiency, calculateStaffHours, getBusinessDateString } from '@/lib/utils';
 import { fetchWithRetry } from '@/lib/firestoreRetry';
 
 interface UseAnalysisDataProps {
@@ -76,7 +76,9 @@ export function useAnalysisData({ shop }: UseAnalysisDataProps) {
     fetchAnalytics();
   }, [shop, retryToken]);
 
-  const latestDayData = allData.length > 0 ? allData[allData.length - 1] : null;
+  // 🟢 配列の末尾（＝Firestoreにある最新の記録日）ではなく、実際の営業日と一致するデータだけを「本日」として扱う
+  const todayBusinessDate = getBusinessDateString();
+  const latestDayData = allData.find(day => day.date === todayBusinessDate) || null;
 
   return {
     allData, // 🟢 全データを出荷

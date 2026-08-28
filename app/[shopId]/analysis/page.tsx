@@ -81,7 +81,13 @@ function AnalysisContent() {
                 />
 
                 {/* 🟢 2. 日報報告用ジェネレーター */}
-                {latestDayData && <ReportGenerator latestDayData={latestDayData} />}
+                {latestDayData ? (
+                    <ReportGenerator latestDayData={latestDayData} />
+                ) : (
+                    <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm text-center">
+                        <p className="text-sm font-bold text-slate-400">本日のデータはまだ入力されていません</p>
+                    </div>
+                )}
 
                 {/* 🟢 3. 人時売上高の推移グラフ (キリッと折れ線バージョン) */}
                 <SalesChart
