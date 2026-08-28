@@ -1,6 +1,6 @@
 // hooks/useAttendanceData.ts
 import { useState, useEffect, useCallback } from 'react';
-import { db } from '@/lib/firebase';
+import { db, reconnectFirestore } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { calculateSalesEfficiency, calculateStaffHours } from '@/lib/utils';
 import { fetchWithRetry } from '@/lib/firestoreRetry';
@@ -19,7 +19,10 @@ export function useAttendanceData({ shop, date, sales, setSales }: UseAttendance
     const [error, setError] = useState<boolean>(false);
     // 🔁 「再読み込み」ボタン用のトリガー。値を変えるとuseEffectが再実行される
     const [retryToken, setRetryToken] = useState(0);
-    const refetch = useCallback(() => setRetryToken(t => t + 1), []);
+    const refetch = useCallback(async () => {
+        await reconnectFirestore();
+        setRetryToken(t => t + 1);
+    }, []);
 
     useEffect(() => {
         setLoading(true);

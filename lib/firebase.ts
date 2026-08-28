@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
-import { initializeFirestore, getFirestore, persistentLocalCache, persistentSingleTabManager } from "firebase/firestore";
+import { initializeFirestore, getFirestore, persistentLocalCache, persistentSingleTabManager, disableNetwork, enableNetwork } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -25,5 +25,17 @@ export const db = (() => {
     return getFirestore(app);
   }
 })();
+
+// 「再読み込み」ボタン用: Wi-Fi⇔モバイル回線の切り替えやスリープ復帰などで
+// Firestoreの内部通信チャンネルが壊れたまま固まっているケースに備えて、
+// クエリをやり直す前に一度接続を切って繋ぎ直す（ページ全体のリロードに近い効果）
+export async function reconnectFirestore() {
+  try {
+    await disableNetwork(db);
+    await enableNetwork(db);
+  } catch (err) {
+    console.warn("Firestoreの再接続に失敗しました:", err);
+  }
+}
 
 

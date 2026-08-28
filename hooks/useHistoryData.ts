@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from 'react';
-import { db } from '@/lib/firebase';
+import { db, reconnectFirestore } from '@/lib/firebase';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { fetchWithRetry } from '@/lib/firestoreRetry';
 
@@ -121,7 +121,8 @@ export function useHistoryData({ shop }: UseHistoryDataProps) {
 
     // 🔁 「再読み込み」ボタン用: 月一覧の再取得をトリガーする
     // （月別データの再取得は上のuseEffect内で直列に行われる。ここで直接fetchHistoryも呼ぶと同時に2つの取得が走り、loading/errorの状態が競合してしまう）
-    const refetch = useCallback(() => {
+    const refetch = useCallback(async () => {
+        await reconnectFirestore();
         setRetryToken(t => t + 1);
     }, []);
 
