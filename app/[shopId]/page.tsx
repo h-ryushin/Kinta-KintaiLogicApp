@@ -13,6 +13,7 @@ import { BottomNav } from '@/components/organisms/BottomNav';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useAttendanceModal } from '@/hooks/useAttendanceModal';
 import { useAttendanceData } from '@/hooks/useAttendanceData';
+import { getBusinessDateString } from '@/lib/utils';
 
 function AttendanceContent() {
   const router = useRouter();
@@ -21,17 +22,9 @@ function AttendanceContent() {
   const shop = params.shopId as string;
   const dateParam = searchParams.get('date');
 
-  // ローカル（日本時間）基準でDateをYYYY-MM-DD文字列に変換する
-  // ※ toISOString()はUTC基準になり、朝3時〜8時台に日付がズレるため使用しない
-  const formatLocalDate = (d: Date) => {
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
-
   // 今日の日付（YYYY-MM-DD）を取得する関数
-  const getTodayString = () => formatLocalDate(new Date());
+  // ※ 朝3時までは前日を「今日（営業日）」として扱う（getBusinessDateStringに統一）
+  const getTodayString = () => getBusinessDateString();
 
   const [date, setDate] = useState(dateParam || getTodayString());
   const [showToast, setShowToast] = useState(false);
@@ -53,14 +46,8 @@ function AttendanceContent() {
     const interval = setInterval(() => {
       const now = new Date();
 
-      // 朝3時営業切り替えのロジック：もし現在時刻が「朝0時〜2時59分」なら、日付としては「前日」として扱う
-      const targetDate = new Date(now);
-      if (now.getHours() < 3) {
-        targetDate.setDate(targetDate.getDate() - 1);
-      }
-
       // 朝3時基準で計算された「あるべき今日の日付（YYYY-MM-DD）」
-      const businessToday = formatLocalDate(targetDate);
+      const businessToday = getBusinessDateString(now);
 
       // 【超重要】ユーザーが意図的に過去のURL（?date=...）を開いている時はリロードを絶対に阻止！
       // 「今アプリが開いている日付」が「朝3時基準の今日」であり、かつ「実際の時間が翌日の朝3時を過ぎた」時だけ走らせる
